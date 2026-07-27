@@ -29,7 +29,23 @@ DEBUG = env("DJANGO_DEBUG")
 SECRET_KEY = env("DJANGO_SECRET_KEY", default=INSECURE_PLACEHOLDER)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
-SITE_URL = env("SITE_URL", default="http://localhost:3000").rstrip("/")
+def _canonical_origin(url: str) -> str:
+    """Drop a trailing slash and a port that is the scheme's default.
+
+    `https://books.example:443` and `https://books.example` are the same origin, but
+    only the second is what a browser sends in an `Origin` header -- so the explicit
+    form silently breaks CSRF_TRUSTED_ORIGINS -- and it is the ugly one to publish in
+    a toot. Normalising here fixes every consumer at once: canonical URLs, og:image,
+    the feed, and the syndicated link.
+    """
+    url = url.strip().rstrip("/")
+    for scheme, port in (("https://", ":443"), ("http://", ":80")):
+        if url.startswith(scheme) and url.endswith(port):
+            return url[: -len(port)]
+    return url
+
+
+SITE_URL = _canonical_origin(env("SITE_URL", default="http://localhost:3000"))
 SITE_NAME = env("SITE_NAME", default="Remembrancer")
 
 # Non-obvious admin path. Obscurity is not a control on its own, but it removes the

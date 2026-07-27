@@ -16,6 +16,29 @@ from reviews.models import Review
 pytestmark = pytest.mark.django_db
 
 
+# -- the public origin, as everything else will quote it ---------------------
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ("https://books.example:443", "https://books.example"),
+        ("https://books.example:443/", "https://books.example"),
+        ("http://localhost:80", "http://localhost"),
+        # Not a default port, and not a port at all -- both must survive untouched.
+        ("https://books.example:8443", "https://books.example:8443"),
+        ("https://books.example:4433", "https://books.example:4433"),
+        ("https://books.example", "https://books.example"),
+    ],
+)
+def test_a_default_port_is_dropped_from_the_public_origin(configured, expected):
+    """`https://host:443` is the same origin as `https://host`, but nothing else
+    agrees: a browser omits it from `Origin`, so CSRF_TRUSTED_ORIGINS stops matching,
+    and it federates into a toot looking like a misconfiguration."""
+    from remembrancer.settings import _canonical_origin
+
+    assert _canonical_origin(configured) == expected
+
+
 # -- login throttling must key on the client, not on the proxy ---------------
 
 def test_lockouts_key_on_the_real_client_not_the_proxy(rf, settings):
