@@ -1,0 +1,18 @@
+{% extends "admin/change_list.html" %}
+
+{# Two links, because the size difference is large enough to be a real choice: the
+   to-read pile is usually most of the library and says nothing except "already
+   own this". Counts are in the labels so you know what you are about to copy. #}
+{% block object-tools-items %}
+  <li>
+    <a href="{% url 'admin:catalog_book_export_profile' %}" target="_blank">
+      Export for an LLM ({{ reviewed }} reviewed, {{ finished }} finished, {{ abandoned }} dropped, {{ unstarted }} to read)
+    </a>
+  </li>
+  <li>
+    <a href="{% url 'admin:catalog_book_export_profile' %}?compact=1" target="_blank">
+      … without the to-read pile
+    </a>
+  </li>
+  {{ block.super }}
+{% endblock %}

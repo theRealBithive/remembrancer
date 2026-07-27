@@ -285,6 +285,21 @@ print whatever URL the builder happened to have.
 - **P2 — reach.** Mastodon action + idempotency. *Done.*
 - **P3 — metrics.** Beacon endpoint, dedup, daily buckets, count display. *Done.*
 
+## Listening profile export
+
+Admin-only plain text, one line per book, a legend instead of repeated field names.
+Carries rating, the written verdict, pace and abandonment; omits publisher, ISBN,
+description, covers and ABS ids. ~30 KB for 450 books.
+
+The judgement here is about what constitutes signal, not about the format. Pace and
+abandonment are in because they are verdicts given without meaning to; the blurb and
+the publisher are out because a recommender learns nothing from them and they would
+triple the size. A reviewed book stays in the export after it is orphaned upstream —
+the verdict was authored, and it still describes the taste.
+
+Not an API and not public: it is one person's entire reading history behind
+`admin_view()` and `no-store`.
+
 ## Deliberately out of scope
 
 Comments, multi-user accounts, per-user ABS credentials, live ABS proxying at

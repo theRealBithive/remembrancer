@@ -1,9 +1,12 @@
 from django.contrib import admin, messages
-from django.urls import reverse
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse
+from django.urls import path, reverse
 from django.utils.html import format_html
 
 from catalog.abs import AbsError
 from catalog.models import Book
+from catalog.profile import build_profile, profile_stats
 from catalog.sync import sync
 
 
@@ -62,6 +65,38 @@ class BookAdmin(admin.ModelAdmin):
     search_fields = ("title", "subtitle", "authors", "narrators", "asin", "isbn")
     ordering = ("-finished_at", "title")
     actions = ["sync_now"]
+    change_list_template = "admin/catalog/book/change_list.html"
+
+    def get_urls(self):
+        return [
+            path(
+                "export-profile/",
+                # admin_view() enforces staff + active + never-cache. This hands out
+                # one person's entire reading history; it is not a public page.
+                self.admin_site.admin_view(self.export_profile),
+                name="catalog_book_export_profile",
+            ),
+            *super().get_urls(),
+        ]
+
+    def export_profile(self, request):
+        """The whole library as text, for pasting into an LLM.
+
+        Served inline rather than as a download: the point is to select it and paste
+        it somewhere, and a file in ~/Downloads is one step further from that.
+        """
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        compact = request.GET.get("compact") == "1"
+        body = build_profile(include_unstarted=not compact)
+        response = HttpResponse(body, content_type="text/plain; charset=utf-8")
+        response["Content-Disposition"] = 'inline; filename="listening-profile.txt"'
+        # Nothing in between has any business keeping a copy.
+        response["Cache-Control"] = "no-store"
+        return response
+
+    def changelist_view(self, request, extra_context=None):
+        return super().changelist_view(request, {**(extra_context or {}), **profile_stats()})
 
     def get_queryset(self, request):
         # The review column touches obj.review on every row; without this a 450-book

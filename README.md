@@ -99,6 +99,33 @@ If you change what is processed, `/legal` has to change with it — the privacy 
 there describes this mechanism specifically, and it is a statement to visitors rather
 than a comment.
 
+## Asking an LLM what to read next
+
+Admin → *Books* → **Export for an LLM**. It opens a plain-text page: select all,
+paste it into a chat, and the prompt at the bottom asks for recommendations. A
+450-book library comes to roughly 30 KB, about 7k tokens — small enough that nothing
+has to be trimmed on the other end.
+
+The format is one line per book with a legend at the top instead of repeated field
+names, and it carries only what says something about taste: rating, your own written
+verdict, listening pace, and what you abandoned. Publisher, ISBN, cover and ABS ids
+are left out — they would cost context and tell a recommender nothing.
+
+The second link omits the to-read pile. That is usually most of the library and
+contributes only "already own this", so dropping it cuts the export by about two
+thirds — at the price of the model occasionally suggesting something already sitting
+on your shelf.
+
+Same thing from the shell, for piping:
+
+```bash
+docker compose exec web python manage.py export_profile > profile.txt
+docker compose exec web python manage.py export_profile --no-unstarted
+```
+
+The export is your whole reading history in one document. It is behind the admin
+login and sent with `no-store`; treat the pasted copy with the same care.
+
 ## Everyday operations
 
 | | |
@@ -106,6 +133,7 @@ than a comment.
 | `manage.py sync_abs` | Mirror ABS now. Runs nightly via django-q2; also an admin action. |
 | `manage.py revalidate_all` | Rebuild every cached page. Run after each deploy — a fresh `next build` can't reach Django, so the index ships empty. |
 | Admin → Reviews → *Post to Mastodon* | Federate selected published reviews. |
+| `manage.py export_profile` | Print the listening profile as LLM-readable text. Also a button on the Books changelist. |
 | `docker compose logs -f qcluster` | Watch the scheduled sync. |
 
 An expired `ABS_TOKEN` makes the sync fail loudly (non-zero exit, failed django-q2
