@@ -1,5 +1,11 @@
 name: remembrancer
 
+# Images are published to GHCR by CI. `docker compose pull` fetches them; the `build`
+# stanzas stay so `up --build` still works from a checkout. IMAGE_TAG pins a release
+# (a git sha or a version tag); it defaults to whatever main last published.
+x-images:
+  web: &web-image ghcr.io/therealbithive/remembrancer-web:${IMAGE_TAG:-latest}
+
 x-django-env: &django-env
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set in .env}
   DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
@@ -42,6 +48,7 @@ services:
       retries: 10
 
   web:
+    image: *web-image
     build: ./backend
     restart: unless-stopped
     environment: *django-env
@@ -65,6 +72,7 @@ services:
                   --workers 3 --timeout 120 --access-logfile - --error-logfile -"
 
   qcluster:
+    image: *web-image      # same image, different command
     build: ./backend
     restart: unless-stopped
     environment: *django-env
@@ -79,17 +87,16 @@ services:
     command: ["python", "manage.py", "qcluster"]
 
   next:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set in .env}
-        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Remembrancer}
+    image: ghcr.io/therealbithive/remembrancer-next:${IMAGE_TAG:-latest}
+    build: ./frontend
     restart: unless-stopped
+    # All read at render time, not baked at build time -- every component is a Server
+    # Component, so one published image serves any domain.
     environment:
       DJANGO_INTERNAL_URL: ${DJANGO_INTERNAL_URL:-http://web:8000}
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set in .env}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
-      NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Remembrancer}
+      SITE_URL: ${SITE_URL:?set in .env}
+      SITE_NAME: ${SITE_NAME:-Remembrancer}
     volumes:
       # Survives redeploys, so a restart mid-federation doesn't dump the whole
       # preview-fetch herd onto Django.

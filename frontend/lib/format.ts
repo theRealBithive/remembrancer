@@ -26,6 +26,31 @@ export function runtimeFraction(seconds: number | null): number {
   return Math.max(0.08, Math.sqrt(hours / CAP_HOURS));
 }
 
+/**
+ * How long the book took, relative to its length.
+ *
+ * The pace is the point, not the elapsed time on its own: four days on a 14-hour book
+ * is a different act from four days on a three-hour one. No start or finish date is
+ * published — the judgement is interesting, the calendar is not.
+ */
+export function pace(days: number | null, hoursPerDay: number | null): string | null {
+  if (days === null || hoursPerDay === null) return null;
+
+  const span =
+    days < 1
+      ? "in a day"
+      : days < 1.5
+        ? "in a day"
+        : days < 60
+          ? `over ${Math.round(days)} days`
+          : days < 365
+            ? `over ${Math.round(days / 30.44)} months`
+            : `over ${(days / 365.25).toFixed(1)} years`;
+
+  const rate = hoursPerDay >= 10 ? Math.round(hoursPerDay) : Number(hoursPerDay.toFixed(1));
+  return `${span}, ${rate} h/day`;
+}
+
 export function listeningDate(iso: string | null): string | null {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString("en-GB", {

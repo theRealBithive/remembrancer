@@ -22,8 +22,8 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "Remembrancer";
+const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000";
+const SITE_NAME = process.env.SITE_NAME ?? "Remembrancer";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

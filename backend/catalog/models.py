@@ -7,8 +7,21 @@ in `reviews`, which is why the two apps are separate.
 
 import re
 import unicodedata
+from datetime import timedelta
 
 from django.db import models
+from django.utils import timezone
+
+# What counts as abandoned. Tuned against a real 456-book library: 90 days of silence
+# under 15% is unambiguous, and the 5-minute floor separates a verdict from a mis-tap
+# -- a book opened for ninety seconds was never begun and says nothing worth writing.
+ABANDONED_IDLE_DAYS = 90
+ABANDONED_MAX_PROGRESS = 0.15
+ABANDONED_MIN_SECONDS = 300
+
+
+def abandoned_cutoff():
+    return timezone.now() - timedelta(days=ABANDONED_IDLE_DAYS)
 
 
 def normalize_match_key(title: str, author: str) -> str:
@@ -62,8 +75,21 @@ class Book(models.Model):
         help_text="Fingerprint of the upstream cover; re-download only when it changes.",
     )
 
+    # --- listening record --------------------------------------------------
+    # How long a book took, relative to its length, is the strongest available
+    # signal of how much it was enjoyed: a 14h book finished in four days was
+    # devoured, the same book spread over a year was endured.
     is_finished = models.BooleanField(default=False, db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    last_played_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Last progress update. Silence since is what marks a book abandoned.",
+    )
+    progress = models.FloatField(default=0.0, help_text="0..1, from ABS.")
+    seconds_listened = models.PositiveIntegerField(null=True, blank=True)
 
     is_orphaned = models.BooleanField(
         default=False,
@@ -82,6 +108,57 @@ class Book(models.Model):
     @property
     def primary_author(self) -> str:
         return self.authors.split(",")[0].strip() if self.authors else ""
+
+    # -- listening pace -----------------------------------------------------
+
+    @property
+    def days_to_finish(self) -> float | None:
+        """Calendar days between first play and finishing."""
+        if not (self.started_at and self.finished_at):
+            return None
+        elapsed = (self.finished_at - self.started_at).total_seconds()
+        return elapsed / 86400 if elapsed > 0 else None
+
+    @property
+    def listening_pace(self) -> float | None:
+        """Hours of audio consumed per calendar day.
+
+        Normalises length away, which is the whole point: four days on a 14h book is
+        a different act from four days on a 3h one. Playback speed means this can
+        legitimately exceed 24, so it is not capped -- but a run under an hour is
+        treated as same-day to keep the divisor from exploding.
+        """
+        days = self.days_to_finish
+        if days is None or not self.duration_seconds:
+            return None
+        return (self.duration_seconds / 3600) / max(days, 1 / 24)
+
+    @property
+    def is_abandoned(self) -> bool:
+        """Started, barely got anywhere, and untouched since. See ABANDONED_*."""
+        if self.is_finished or self.is_orphaned or not self.last_played_at:
+            return False
+        if (self.seconds_listened or 0) < ABANDONED_MIN_SECONDS:
+            return False
+        if self.progress >= ABANDONED_MAX_PROGRESS:
+            return False
+        return self.last_played_at <= abandoned_cutoff()
+
+    @staticmethod
+    def abandoned_q() -> models.Q:
+        """The SQL twin of `is_abandoned`, for filtering a changelist.
+
+        Kept beside it deliberately: two definitions of "abandoned" that drift apart
+        would show one set of books in the queue and a different flag on each row.
+        """
+        return models.Q(
+            is_finished=False,
+            is_orphaned=False,
+            last_played_at__isnull=False,
+            last_played_at__lte=abandoned_cutoff(),
+            seconds_listened__gte=ABANDONED_MIN_SECONDS,
+            progress__lt=ABANDONED_MAX_PROGRESS,
+        )
 
     @classmethod
     def match(cls, *, abs_item_id: str, asin: str, isbn: str, match_key: str, claimed=()):

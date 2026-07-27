@@ -18,7 +18,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         slugs = list(published().values_list("slug", flat=True))
-        paths = ["/"] + [f"/reviews/{slug}" for slug in slugs]
+        # /legal is in here because it prints SITE_URL, which is a runtime value the
+        # build could not know.
+        paths = ["/", "/legal"] + [f"/reviews/{slug}" for slug in slugs]
 
         if not revalidate(paths):
             raise CommandError(

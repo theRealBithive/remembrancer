@@ -122,6 +122,14 @@ def _duration(value) -> int | None:
     return seconds if seconds > 0 else None
 
 
+def _fraction(value) -> float:
+    """ABS `progress`, clamped to 0..1. Absent means never started, which is 0."""
+    try:
+        return min(max(float(value), 0.0), 1.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _year(value) -> int | None:
     try:
         year = int(str(value)[:4])
@@ -254,12 +262,18 @@ def sync(client: AbsClient | None = None) -> SyncReport:
             book.is_orphaned = False
 
             entry = progress.get(abs_id) or {}
-            finished = bool(entry.get("isFinished"))
-            finished_at = _timestamp(entry.get("finishedAt"))
-            if book.is_finished != finished or book.finished_at != finished_at:
-                book.is_finished = finished
-                book.finished_at = finished_at
-                dirty = True
+            listening = {
+                "is_finished": bool(entry.get("isFinished")),
+                "started_at": _timestamp(entry.get("startedAt")),
+                "finished_at": _timestamp(entry.get("finishedAt")),
+                "last_played_at": _timestamp(entry.get("lastUpdate")),
+                "progress": _fraction(entry.get("progress")),
+                "seconds_listened": _duration(entry.get("currentTime")),
+            }
+            for name, value in listening.items():
+                if getattr(book, name) != value:
+                    setattr(book, name, value)
+                    dirty = True
 
             fingerprint = cover_fingerprint(item)
             # `not book.cover` is what recovers a wiped media volume: the hash still

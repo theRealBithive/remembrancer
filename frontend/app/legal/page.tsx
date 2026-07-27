@@ -6,7 +6,11 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// Regenerated at runtime like the index: SITE_URL is a runtime value, and a page
+// frozen at build time would print whatever the image was built with.
+export const revalidate = 3600;
+
+const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000";
 
 /**
  * Impressum (§5 DDG) and privacy notice.

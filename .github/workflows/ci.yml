@@ -69,8 +69,8 @@ jobs:
         working-directory: frontend
         shell: bash   # for pipefail: without it `tee` masks a failed build
         env:
-          NEXT_PUBLIC_SITE_URL: https://remembrancer.example
-          NEXT_PUBLIC_SITE_NAME: Remembrancer
+          SITE_URL: https://remembrancer.example
+          SITE_NAME: Remembrancer
         run: pnpm build | tee build.log
 
       # The one check that must not regress. Reading headers()/cookies()/searchParams
@@ -112,7 +112,6 @@ jobs:
           sed -e 's|^SITE_URL=.*|SITE_URL=https://localhost:8443|' \
               -e 's|^SITE_HOST=.*|SITE_HOST=localhost|' \
               -e 's|^DJANGO_ALLOWED_HOSTS=.*|DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,web,caddy|' \
-              -e 's|^NEXT_PUBLIC_SITE_URL=.*|NEXT_PUBLIC_SITE_URL=https://localhost:8443|' \
               -e "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$(openssl rand -hex 40)|" \
               -e "s|^REVALIDATE_SECRET=.*|REVALIDATE_SECRET=$(openssl rand -hex 40)|" \
               -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=ci-postgres-password|" \

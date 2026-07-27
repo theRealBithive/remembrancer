@@ -22,6 +22,8 @@ export type Book = {
   duration_seconds: number | null;
   cover_url: string | null;
   cover_thumb_url: string | null;
+  days_to_finish: number | null;
+  listening_pace: number | null;
 };
 
 export type ReviewSummary = {

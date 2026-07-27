@@ -3,11 +3,11 @@
 A single-author public audiobook review site, sourced from a self-hosted
 [Audiobookshelf](https://github.com/advplyr/audiobookshelf) instance.
 
-Django mirrors the library nightly and surfaces a queue of finished-but-unreviewed
-books. You write in the Django admin. Next.js serves statically-generated public
+Django mirrors the library nightly and surfaces a queue of books awaiting a verdict —
+finished, or abandoned early enough that bailing was itself the review. You write in the Django admin. Next.js serves statically-generated public
 pages with OpenGraph tags, so a link posted to Mastodon renders a proper card.
 
-`DESIGN.md` records the 20 decisions behind the architecture and why each was made.
+`DESIGN.md` records the 22 decisions behind the architecture and why each was made.
 
 **Status: P1 (read) complete.** P2 is Mastodon syndication, P3 is view counting.
 
@@ -20,15 +20,29 @@ Next.js 16 / React 19 · Caddy · uv + pnpm
 
 ## Getting started
 
+Images are published to GHCR, so a deployment needs no build step and no checkout
+beyond `compose.yaml`, the `Caddyfile` and your `.env`:
+
 ```bash
 cp .env.example .env      # then fill it in -- every value is explained inline
-docker compose up -d --build   # `web` exits until the change-me secrets are replaced
+docker compose pull
+docker compose up -d      # `web` exits until the change-me secrets are replaced
 docker compose exec web python manage.py createsuperuser
 docker compose exec web python manage.py sync_abs       # first mirror
 docker compose exec web python manage.py revalidate_all  # warm the page cache
 ```
 
 Then open `https://<your-domain>/<DJANGO_ADMIN_PATH>/` and write something.
+
+`docker compose up -d --build` still builds from source instead, which is what local
+development wants. To pin a release rather than track `main`, set `IMAGE_TAG` in `.env`
+to a version tag or `sha-<commit>`; every CI build publishes both.
+
+Nothing domain-specific is compiled into the frontend image — every component is a
+Server Component, so `SITE_URL` and `SITE_NAME` are read at render time. One image
+serves any domain, which is also why `/` and `/legal` carry a `revalidate` and why
+`revalidate_all` belongs in the deploy: a page frozen at build time would print
+whatever URL the builder happened to have.
 
 ### Before going public
 
@@ -77,7 +91,6 @@ services:
 ```
 ```
 SITE_HOST=localhost   SITE_URL=https://localhost:8443   DJANGO_DEBUG=false
-NEXT_PUBLIC_SITE_URL=https://localhost:8443
 ```
 
 `tests/production-posture.spec.ts` covers what only exists in that configuration —
@@ -100,6 +113,10 @@ cd e2e && BASE_URL=https://localhost:8443 HTTP_BASE_URL=http://localhost:8081 \
 | `backend` | ruff, then pytest against in-memory SQLite — no service container needed. |
 | `frontend` | typecheck, build, and **fail if `/reviews/[slug]` is no longer `●`**. |
 | `e2e` | builds and starts all six services in production posture, seeds demo content, runs the full Playwright suite. |
+
+A separate `publish` workflow pushes `ghcr.io/<owner>/remembrancer-web` and
+`-next` on every green `main` build and on `v*` tags. It is gated on CI succeeding, so
+`latest` never points at a build whose production-posture e2e failed.
 
 The `e2e` job also asserts that `web` *refuses* to boot on the placeholder secrets in
 `.env.example`. Running CI with `DJANGO_DEBUG=true` would be the cheaper option and
@@ -147,6 +164,12 @@ cold cache and the full preview-fetch herd lands on Django.
 
 **Slugs freeze at first publish.** A federated Mastodon post cannot be recalled, so a
 published URL must never 404.
+
+**Pace is the rating hint.** `Book.listening_pace` is hours of audio per calendar day;
+`is_abandoned` is 90 days of silence under 15% with at least five minutes played. Both
+feed the admin queue, and `is_abandoned` has a SQL twin (`Book.abandoned_q()`) because
+the changelist filters on it — change one and you must change the other, which is why
+a test asserts they agree.
 
 **ABS is a source, not a dependency.** Metadata and covers are copied locally. A book
 removed upstream is flagged orphaned, never deleted — its review survives.

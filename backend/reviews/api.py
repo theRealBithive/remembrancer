@@ -39,6 +39,10 @@ class BookOut(Schema):
     duration_seconds: int | None
     cover_url: str | None
     cover_thumb_url: str | None
+    # How long it took relative to its length. Dates are deliberately absent: the pace
+    # is the judgement, the calendar is private.
+    days_to_finish: float | None
+    listening_pace: float | None
 
 
 class ReviewListOut(Schema):
@@ -68,6 +72,8 @@ def _book(review: Review) -> dict:
         "duration_seconds": b.duration_seconds,
         "cover_url": absolute(b.cover.url if b.cover else None),
         "cover_thumb_url": absolute(b.cover_thumb.url if b.cover_thumb else None),
+        "days_to_finish": b.days_to_finish,
+        "listening_pace": b.listening_pace,
     }
 
 

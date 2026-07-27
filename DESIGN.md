@@ -21,7 +21,7 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 |---|---|---|
 | 1 | Audience | Single-author write, anonymous public read. No accounts, registration, moderation, or comments. |
 | 2 | Topology | ABS is publicly reachable over HTTPS; sync is a plain scheduled pull. |
-| 3 | Sync scope | Mirror all book libraries + `/api/me` progress. Queue = `isFinished AND no review`. |
+| 3 | Sync scope | Mirror all book libraries + `/api/me` progress. Queue = finished **or abandoned**, and no review. |
 | 4 | Durability | Full local copy of metadata; covers downloaded to local media. ABS is a source, not a runtime dependency. |
 | 5 | Rating | Overall 1–5 in half-steps (required) + separate narration score (optional). Prose optional. |
 | 6 | Content | Markdown body, sanitized with `nh3`. `draft → published` + `published_at`. Hand-written `summary` (~300 chars). |
@@ -39,6 +39,8 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 18 | Identity | "Remembrancer". Editorial/typographic: serif body, generous measure, covers as the only colour. |
 | 19 | Re-reviews | **One review per book, ever** — `OneToOneField`. Edit in place; slug and view count persist. Deliberate, not a schema artifact. |
 | 20 | Legal | `/legal` route in P1 (Impressum §5 DDG + privacy notice), footer-linked sitewide. Text authored by the operator. |
+| 21 | Listening record | Capture `startedAt`/`lastUpdate`/`progress`. Pace (h of audio per calendar day) is the rating hint; abandonment is a reviewable verdict. Pace is public, dates are not. |
+| 22 | Distribution | Images published to GHCR by CI. Nothing domain-specific is baked in, so one image serves any deployment. |
 
 ---
 
@@ -69,7 +71,11 @@ Book
   cover              ImageField                    # local copy
   cover_source_hash  CharField                     # re-download only on change
   is_finished        BooleanField                  # from /api/me
+  started_at         DateTimeField, nullable       # first play
   finished_at        DateTimeField, nullable
+  last_played_at     DateTimeField, nullable       # silence since => abandoned
+  progress           FloatField                    # 0..1
+  seconds_listened   PositiveIntegerField, nullable
   is_orphaned        BooleanField                  # vanished upstream; review survives
   synced_at          DateTimeField
 
@@ -99,6 +105,37 @@ with a short TTL.
 `abs_item_id` → `asin` → `isbn` → normalized `title + primary author`. Only create a
 new `Book` if all four miss. This is what keeps a published review attached to its
 book across an ABS remove/re-add.
+
+---
+
+## The listening record
+
+How long a book took relative to its length is the strongest signal available for how
+much it was enjoyed, and it costs nothing: ABS already tracks it.
+
+```
+days_to_finish  = finished_at - started_at
+listening_pace  = (duration_seconds / 3600) / days_to_finish     # h of audio per day
+is_abandoned    = not finished AND >= 90 days silent
+                  AND progress < 15% AND >= 5 minutes listened
+```
+
+Pace normalises length away, which is the entire point: four days on a 14-hour book is
+a different act from four days on a three-hour one. Measured against a real 456-book
+library the spread is wide and legible — 4.1 h/day over 1.6 days at one end, 0.05 h/day
+over 369 days at the other.
+
+The five-minute floor is what separates a verdict from a mis-tap. Without it, 7 of 22
+candidates were books opened once and closed, which say nothing worth writing down.
+
+`is_abandoned` has a SQL twin, `Book.abandoned_q()`, because the changelist has to
+filter on it. They are defined next to each other and tested against each other: two
+definitions that drifted would show one set of books in the queue and a different flag
+on each row.
+
+**Pace is published; dates are not.** "Over 3 days, 5.4 h/day" is a judgement and reads
+as editorial. Start and finish dates would publish a listening calendar, which is
+nobody's business.
 
 ---
 
@@ -208,6 +245,13 @@ Caddy/nginx (TLS, one domain)
                  proxying the prefix to it yields HTML 404s and a broken admin)
 services: web(django) · qcluster(django-q2) · next · postgres · redis · proxy
 ```
+
+Images are built and pushed to GHCR by CI, only after the production-posture e2e job
+passes. Nothing domain-specific is baked into them: every component in the frontend is
+a Server Component, so `SITE_URL` and `SITE_NAME` are read at render time rather than
+compiled into a bundle. That is what makes one published image usable on any domain --
+and why `/legal` and `/` carry a `revalidate`, since a page frozen at build time would
+print whatever URL the builder happened to have.
 
 ## Phasing
 

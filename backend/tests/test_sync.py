@@ -4,6 +4,8 @@ Re-match keeps a published review attached when ABS re-mints an item id; orphani
 never destroys a book a review points at; a 401 is fatal and visible.
 """
 
+from datetime import timedelta
+
 import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -288,3 +290,97 @@ def test_auth_failure_is_fatal_and_visible(monkeypatch):
 
     with pytest.raises(CommandError, match="authentication failed"):
         call_command("sync_abs")
+
+
+# -- the listening record ----------------------------------------------------
+
+def _progress(**over):
+    base = {"libraryItemId": "item-1", "isFinished": False, "progress": 0.0,
+            "currentTime": 0, "startedAt": None, "finishedAt": None, "lastUpdate": None}
+    return {"item-1": base | over}
+
+
+def test_pace_is_captured_from_progress():
+    """A 16h book finished over 4 days -> 4 h/day. This is the rating hint."""
+    start = timezone.now() - timedelta(days=14)
+    client = FakeAbsClient(
+        items=[abs_item()],  # 57600s = 16h
+        progress=_progress(isFinished=True, progress=1.0, currentTime=57600,
+                           startedAt=start.timestamp() * 1000,
+                           finishedAt=(start + timedelta(days=4)).timestamp() * 1000,
+                           lastUpdate=(start + timedelta(days=4)).timestamp() * 1000),
+    )
+    sync(client)
+
+    book = Book.objects.get()
+    assert book.days_to_finish == pytest.approx(4, abs=0.01)
+    assert book.listening_pace == pytest.approx(4.0, abs=0.05)
+    assert book.is_abandoned is False
+
+
+def test_pace_is_none_rather_than_wrong_when_a_timestamp_is_missing():
+    client = FakeAbsClient(
+        items=[abs_item()],
+        progress=_progress(isFinished=True, progress=1.0,
+                           finishedAt=timezone.now().timestamp() * 1000),
+    )
+    sync(client)
+
+    book = Book.objects.get()
+    assert book.is_finished is True
+    assert book.days_to_finish is None
+    assert book.listening_pace is None
+
+
+def test_a_same_day_binge_does_not_divide_by_zero():
+    now = timezone.now()
+    client = FakeAbsClient(
+        items=[abs_item()],
+        progress=_progress(isFinished=True, progress=1.0,
+                           startedAt=now.timestamp() * 1000,
+                           finishedAt=(now + timedelta(minutes=1)).timestamp() * 1000),
+    )
+    sync(client)
+
+    assert Book.objects.get().listening_pace is not None
+
+
+@pytest.mark.parametrize(
+    ("over", "expected", "why"),
+    [
+        ({"currentTime": 1200, "progress": 0.04, "idle": 200}, True, "the real case"),
+        ({"currentTime": 1200, "progress": 0.04, "idle": 10}, False, "still in progress"),
+        ({"currentTime": 30, "progress": 0.001, "idle": 400}, False, "never begun"),
+        ({"currentTime": 9000, "progress": 0.60, "idle": 400}, False, "got properly into it"),
+    ],
+)
+def test_abandonment_needs_a_verdict_not_a_mis_tap(over, expected, why):
+    idle = over.pop("idle")
+    last = timezone.now() - timedelta(days=idle)
+    client = FakeAbsClient(
+        items=[abs_item()],
+        progress=_progress(lastUpdate=last.timestamp() * 1000,
+                           startedAt=(last - timedelta(days=1)).timestamp() * 1000, **over),
+    )
+    sync(client)
+
+    assert Book.objects.get().is_abandoned is expected, why
+
+
+def test_abandoned_queryset_matches_the_property():
+    """Two definitions that drift would show one queue and a different flag per row."""
+    long_ago = (timezone.now() - timedelta(days=200)).timestamp() * 1000
+    sync(FakeAbsClient(
+        items=[abs_item(item_id="dropped"), abs_item(item_id="read", asin="A2", title="Other")],
+        progress={
+            "dropped": {"libraryItemId": "dropped", "isFinished": False, "progress": 0.03,
+                        "currentTime": 900, "lastUpdate": long_ago},
+            "read": {"libraryItemId": "read", "isFinished": True, "progress": 1.0,
+                     "currentTime": 57600, "lastUpdate": long_ago, "finishedAt": long_ago},
+        },
+    ))
+
+    by_sql = set(Book.objects.filter(Book.abandoned_q()).values_list("abs_item_id", flat=True))
+    by_property = {b.abs_item_id for b in Book.objects.all() if b.is_abandoned}
+
+    assert by_sql == by_property == {"dropped"}

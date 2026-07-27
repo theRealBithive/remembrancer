@@ -140,7 +140,11 @@ export default async function ReviewPage({ params }: Props) {
         </div>
       </header>
 
-      <ListeningLine seconds={book.duration_seconds} />
+      <ListeningLine
+        seconds={book.duration_seconds}
+        daysToFinish={book.days_to_finish}
+        hoursPerDay={book.listening_pace}
+      />
 
       <hr className="mt-10 border-0 border-t border-rule" />
 

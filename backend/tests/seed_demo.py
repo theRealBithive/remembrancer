@@ -6,7 +6,9 @@ Not imported by the test suite -- pytest builds its own fixtures.
 """
 
 import io
+from datetime import timedelta
 
+from django.utils import timezone
 from PIL import Image, ImageDraw
 
 from catalog.models import Book, normalize_match_key
@@ -22,6 +24,7 @@ DEMO = [
         "published_year": 2021,
         "duration_seconds": 16 * 3600 + 10 * 60,
         "colour": (196, 92, 47),
+        "days": 3.0,   # devoured
         "rating_overall": 9,
         "rating_narration": 10,
         "summary": "Ray Porter doesn't narrate this so much as inhabit it. The best "
@@ -44,6 +47,7 @@ DEMO = [
         "published_year": 2020,
         "duration_seconds": 6 * 3600 + 45 * 60,
         "colour": (58, 74, 110),
+        "days": 12.0,
         "rating_overall": 8,
         "rating_narration": 9,
         "summary": "Short, strange, and quietly devastating. Ejiofor reads it like "
@@ -59,6 +63,7 @@ DEMO = [
         "published_year": 1965,
         "duration_seconds": 21 * 3600 + 8 * 60,
         "colour": (176, 142, 70),
+        "days": 240.0,  # a crawl -- the other end of the scale
         "rating_overall": 7,
         "rating_narration": 5,
         "summary": "The book endures. This particular production, with its shifting "
@@ -82,6 +87,7 @@ def cover(colour, title):
 for entry in DEMO:
     data = dict(entry)
     colour = data.pop("colour")
+    days = data.pop("days")
     rating_overall = data.pop("rating_overall")
     rating_narration = data.pop("rating_narration")
     summary = data.pop("summary")
@@ -92,6 +98,13 @@ for entry in DEMO:
         defaults={
             **data,
             "is_finished": True,
+            # A listening record, so the public pace line has something to render and
+            # the e2e suite actually exercises it.
+            "finished_at": (finished := timezone.now() - timedelta(days=5)),
+            "started_at": finished - timedelta(days=days),
+            "last_played_at": finished,
+            "progress": 1.0,
+            "seconds_listened": data["duration_seconds"],
             "match_key": normalize_match_key(data["title"], data["authors"]),
         },
     )

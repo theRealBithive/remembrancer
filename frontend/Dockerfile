@@ -11,12 +11,10 @@ RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Baked into the client bundle, so it must be public information only.
-ARG NEXT_PUBLIC_SITE_URL
-ARG NEXT_PUBLIC_SITE_NAME
-ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
-    NEXT_PUBLIC_SITE_NAME=$NEXT_PUBLIC_SITE_NAME \
-    NEXT_TELEMETRY_DISABLED=1
+# No NEXT_PUBLIC_* build args on purpose. Every component here is a Server
+# Component, so SITE_URL and SITE_NAME are read at render time instead of baked
+# into the bundle -- which is what lets one published image serve any domain.
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Django is unreachable at build time, so the index prerenders empty. The deploy
 # runs `manage.py revalidate_all` afterwards to fill the cache.
