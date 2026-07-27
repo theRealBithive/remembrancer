@@ -8,9 +8,12 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-// Regenerated at runtime like the index: SITE_URL is a runtime value, and a page
-// frozen at build time would print whatever the image was built with.
-export const revalidate = 3600;
+// Rendered per request, never cached. Everything on this page comes from the
+// environment, and .next/cache is a volume that outlives the container -- so with any
+// caching at all, correcting an address in .env and restarting leaves the old text
+// being served, which is precisely what an Impressum must not do. The page is
+// essentially untrafficked, so a render per visit costs nothing worth having.
+export const dynamic = "force-dynamic";
 
 
 /**

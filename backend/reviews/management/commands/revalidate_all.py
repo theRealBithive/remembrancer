@@ -18,8 +18,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         slugs = list(published().values_list("slug", flat=True))
-        # /legal is in here because it prints SITE_URL, which is a runtime value the
-        # build could not know.
+        # /legal renders per request, so it needs no warming; it stays in the list as
+        # a cheap guard in case caching is ever reintroduced there.
         paths = ["/", "/legal"] + [f"/reviews/{slug}" for slug in slugs]
 
         if not revalidate(paths):
