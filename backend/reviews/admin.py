@@ -43,7 +43,9 @@ class ReviewAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("book__title", "book__authors", "summary", "body_markdown")
     date_hierarchy = "published_at"
-    autocomplete_fields = ()
+    # A searchable picker rather than a select holding every book in the library.
+    # BookAdmin.get_search_results narrows it to books without a review.
+    autocomplete_fields = ("book",)
     readonly_fields = ("slug", "published_at", "view_count", "mastodon_status_id",
                        "mastodon_posted_at", "public_link", "created_at", "updated_at")
     fieldsets = (

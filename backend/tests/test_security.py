@@ -164,3 +164,34 @@ def test_deploy_check_accepts_real_secrets(settings):
     ids = {p.id for p in check_production_secrets(None)}
 
     assert not {"remembrancer.E001", "remembrancer.E002", "remembrancer.E003"} & ids
+
+
+# -- authoring flow ----------------------------------------------------------
+
+def test_book_changelist_links_straight_into_a_prefilled_review_form(client, book, settings):
+    """Starting from the book beats hunting for it in a select of the whole library."""
+    user = get_user_model().objects.create_superuser("ed", "ed@example.test", "pw-for-tests-only")
+    client.force_login(user)
+
+    listing = client.get(f"/{settings.ADMIN_PATH}/catalog/book/")
+    add_url = f"/{settings.ADMIN_PATH}/reviews/review/add/?book={book.pk}"
+
+    assert add_url in listing.content.decode()
+
+    form = client.get(add_url)
+    assert form.status_code == 200
+    assert form.context["adminform"].form.initial["book"] == str(book.pk)
+
+
+def test_autocomplete_hides_books_that_already_have_a_review(client, book, settings):
+    user = get_user_model().objects.create_superuser("ed2", "e2@example.test", "pw-for-tests-only")
+    client.force_login(user)
+    url = (f"/{settings.ADMIN_PATH}/autocomplete/?app_label=reviews&model_name=review"
+           f"&field_name=book&term={book.title[:6]}")
+
+    before = json.loads(client.get(url).content)["results"]
+    Review.objects.create(book=book, rating_overall=8, summary="Done.")
+    after = json.loads(client.get(url).content)["results"]
+
+    assert [r["id"] for r in before] == [str(book.pk)]
+    assert after == [], "a book with a review must not be offered again"

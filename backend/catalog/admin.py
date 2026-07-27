@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.urls import reverse
 from django.utils.html import format_html
 
 from catalog.abs import AbsError
@@ -54,13 +55,18 @@ class ReviewedFilter(admin.SimpleListFilter):
 class BookAdmin(admin.ModelAdmin):
     """Read-only: this table is a mirror, and the next sync would discard any edit."""
 
-    list_display = ("thumb", "title", "authors", "narrators", "listening", "has_review",
+    list_display = ("thumb", "title", "authors", "narrators", "listening", "write_review",
                     "is_orphaned", "synced_at")
     list_display_links = ("title",)
     list_filter = (ReviewedFilter, "is_finished", "is_orphaned", "series")
     search_fields = ("title", "subtitle", "authors", "narrators", "asin", "isbn")
     ordering = ("-finished_at", "title")
     actions = ["sync_now"]
+
+    def get_queryset(self, request):
+        # The review column touches obj.review on every row; without this a 450-book
+        # changelist issues a query per row.
+        return super().get_queryset(request).select_related("review")
 
     def get_readonly_fields(self, request, obj=None):
         return [f.name for f in Book._meta.fields]
@@ -75,9 +81,33 @@ class BookAdmin(admin.ModelAdmin):
         return format_html('<img src="{}" style="height:44px;border-radius:2px">',
                            obj.cover_thumb.url)
 
-    @admin.display(boolean=True, description="reviewed")
-    def has_review(self, obj):
-        return hasattr(obj, "review")
+    @admin.display(description="review")
+    def write_review(self, obj):
+        """Start the review from the book you are looking at.
+
+        The other direction -- open the review form and hunt for the book -- means
+        scrolling a select of every book in the library, which stops being usable
+        somewhere around the fiftieth.
+        """
+        if review := getattr(obj, "review", None):
+            url = reverse("admin:reviews_review_change", args=[review.pk])
+            label = "edit" if review.is_published else "finish draft"
+            return format_html('<a href="{}">{}</a>', url, label)
+        url = reverse("admin:reviews_review_add")
+        return format_html('<a class="addlink" href="{}?book={}">write</a>', url, obj.pk)
+
+    def get_search_results(self, request, queryset, search_term):
+        """Keep the review form's book autocomplete to books that can still take one.
+
+        Without this the picker happily offers books that already have a review, and
+        the only feedback is a validation error after you have typed everything else.
+        """
+        queryset, may_have_duplicates = super().get_search_results(
+            request, queryset, search_term
+        )
+        if request.GET.get("model_name") == "review" and request.GET.get("field_name") == "book":
+            queryset = queryset.filter(review__isnull=True, is_orphaned=False)
+        return queryset, may_have_duplicates
 
     @admin.display(description="listening")
     def listening(self, obj):
