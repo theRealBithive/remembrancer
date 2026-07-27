@@ -22,6 +22,8 @@ def library(db, book):
         rating_overall=9,
         rating_narration=10,
         summary="Ray Porter carries an already excellent book.",
+        body_markdown="The problem-solving is the plot.\n\nRocky is the best alien "
+        "in years.",
         status=Review.Status.PUBLISHED,
     )
     book.is_finished = True
@@ -66,6 +68,24 @@ def test_a_review_carries_its_rating_and_its_words(library):
 
     assert "4.5 stars | narration 5" in text
     assert "> Ray Porter carries an already excellent book." in text
+
+
+def test_the_whole_review_is_exported_not_just_the_summary(library):
+    """The summary is written for a Mastodon card. The reasons are in the body."""
+    text = build_profile()
+
+    assert "> The problem-solving is the plot." in text
+    assert "> Rocky is the best alien in years." in text
+
+
+def test_a_review_without_a_body_still_renders(db, book):
+    """`body_markdown` is optional, and a stray "> " line would be noise."""
+    Review.objects.create(
+        book=book, rating_overall=6, summary="Fine.", status=Review.Status.PUBLISHED
+    )
+
+    assert "> Fine.\n" in build_profile()
+    assert "> \n" not in build_profile()
 
 
 def test_the_legend_explains_pace_because_the_number_is_meaningless_alone(library):

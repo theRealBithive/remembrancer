@@ -27,7 +27,8 @@ LEGEND = f"""\
 LISTENING PROFILE — exported {{today}} from Audiobookshelf via Remembrancer
 
 Format: one book per line. Fields are separated by " | " and the trailing part is
-always "Title — Author (year, runtime)". A "> " line is my own written verdict.
+always "Title — Author (year, runtime)". A run of "> " lines is my own review of
+that book, in full: first the one-line verdict, then whatever else I wrote.
 
   stars   my rating, 0.5–5.
   pace    hours of audio per calendar day while I was reading it. High means I
@@ -67,6 +68,20 @@ def _pace(book: Book) -> str:
     return f"pace {pace:.1f}" if pace is not None else "pace ?"
 
 
+def _verdict(review) -> list[str]:
+    """The whole review, every line prefixed with "> ".
+
+    The summary alone is written for a Mastodon card, not for a recommender -- the
+    reasons live in the body. Quoting both the same way costs a character a line and
+    makes it unambiguous where one book's words stop and the next book's begin.
+    """
+    text = review.summary.strip()
+    body = review.body_markdown.strip()
+    if body:
+        text += "\n\n" + body
+    return [f"> {line}".rstrip() for line in text.splitlines()]
+
+
 def _reviewed_lines(books) -> list[str]:
     lines = []
     for book in books:
@@ -79,7 +94,8 @@ def _reviewed_lines(books) -> list[str]:
         elif book.is_abandoned:
             parts.append("dropped")
         lines.append(f"{' | '.join(parts)} | {_title(book)}")
-        lines.append(f"> {review.summary.strip()}")
+        lines.extend(_verdict(review))
+        lines.append("")  # a blank line, or a long review runs into the next title
     return lines
 
 

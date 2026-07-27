@@ -288,8 +288,9 @@ print whatever URL the builder happened to have.
 ## Listening profile export
 
 Admin-only plain text, one line per book, a legend instead of repeated field names.
-Carries rating, the written verdict, pace and abandonment; omits publisher, ISBN,
-description, covers and ABS ids. ~30 KB for 450 books.
+Carries rating, the review in full (summary *and* body, quoted with `> `), pace and
+abandonment; omits publisher, ISBN, the upstream description, covers and ABS ids.
+~30 KB for 450 books and three reviews; each further review adds its own length.
 
 The judgement here is about what constitutes signal, not about the format. Pace and
 abandonment are in because they are verdicts given without meaning to; the blurb and

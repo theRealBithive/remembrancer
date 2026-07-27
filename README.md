@@ -107,9 +107,11 @@ paste it into a chat, and the prompt at the bottom asks for recommendations. A
 has to be trimmed on the other end.
 
 The format is one line per book with a legend at the top instead of repeated field
-names, and it carries only what says something about taste: rating, your own written
-verdict, listening pace, and what you abandoned. Publisher, ISBN, cover and ABS ids
-are left out — they would cost context and tell a recommender nothing.
+names, and it carries only what says something about taste: rating, listening pace,
+what you abandoned, and your reviews in full — summary and body both, quoted with
+`> `. The summary alone is written for a Mastodon card; the reasons are in the body,
+and the reasons are the point. Publisher, ISBN, cover and ABS ids are left out —
+they would cost context and tell a recommender nothing.
 
 The second link omits the to-read pile. That is usually most of the library and
 contributes only "already own this", so dropping it cuts the export by about two
