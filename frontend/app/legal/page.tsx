@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { impressum, missingRequired } from "@/lib/impressum";
+
 export const metadata: Metadata = {
   title: "Impressum & Datenschutz",
   description: "Anbieterkennzeichnung und Datenschutzhinweise.",
@@ -15,21 +17,44 @@ const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000";
 /**
  * Impressum (§5 DDG) and privacy notice.
  *
- * The Impressum block below is a PLACEHOLDER and must be completed before the site
- * is publicly reachable -- it has to carry your real, verifiable contact details.
- * The privacy section is filled in, because it describes what this codebase
- * actually does; keep it in step if the processing ever changes.
+ * The contact details come from IMPRESSUM_* in the environment, not from this file:
+ * a published image must not carry one operator's address, and a wrong Impressum
+ * needs to be fixable without a rebuild.
+ *
+ * The privacy section stays in source, because it describes what this codebase
+ * actually does rather than who runs it. Keep it in step if the processing changes.
  */
 export default function LegalPage() {
+  const data = impressum();
+  const missing = missingRequired(data);
+
   return (
     <div className="prose py-8">
       <h1 className="font-display text-3xl">Impressum</h1>
 
-      <p className="border border-rule bg-raised p-4 font-mono text-sm not-prose">
-        TODO before going public: replace this block with your Anbieterkennzeichnung
-        under §5 DDG — name, Anschrift, E-Mail, and (if applicable) USt-IdNr. and
-        Verantwortlicher i.S.d. §18 Abs. 2 MStV.
-      </p>
+      {missing.length > 0 ? (
+        <p className="border border-rule bg-raised p-4 font-mono text-sm not-prose">
+          Diese Seite ist noch nicht vollständig konfiguriert. Fehlende Angaben:{" "}
+          {missing.join(", ")}.
+        </p>
+      ) : (
+        <address className="not-prose whitespace-pre-line not-italic">
+          {[
+            data.name,
+            data.street,
+            data.city,
+            data.country,
+            "",
+            `E-Mail: ${data.email}`,
+            data.phone && `Telefon: ${data.phone}`,
+            data.vatId && `USt-IdNr.: ${data.vatId}`,
+            data.editorialResponsible &&
+              `Verantwortlich i.S.d. §18 Abs. 2 MStV: ${data.editorialResponsible}`,
+          ]
+            .filter(Boolean)
+            .join("\n")}
+        </address>
+      )}
 
       <h2>Datenschutzerklärung</h2>
 
@@ -84,7 +109,9 @@ export default function LegalPage() {
       <p>
         Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der
         Verarbeitung, Datenübertragbarkeit und Widerspruch sowie ein Beschwerderecht
-        bei einer Aufsichtsbehörde. Kontakt: siehe Impressum.
+        bei einer Aufsichtsbehörde
+        {data.supervisoryAuthority ? ` (${data.supervisoryAuthority})` : ""}. Kontakt:
+        siehe Impressum.
       </p>
 
       <h3>Hinweis zur Buchdatenquelle</h3>

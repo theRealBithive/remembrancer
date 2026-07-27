@@ -83,3 +83,21 @@ test("the feed is linked and served as Atom", async ({ request }) => {
   expect(xml).toContain("<feed");
   expect(xml).not.toContain("example.com");
 });
+
+test("the Impressum is either complete or says it is not", async ({ page }) => {
+  // §5 DDG contact details come from IMPRESSUM_* in the environment, so a deployment
+  // can be missing them. What must never happen is a page that looks like a valid
+  // Anbieterkennzeichnung while carrying nothing -- the failure has to be legible.
+  await page.goto("/legal");
+
+  const address = page.locator("address");
+  const warning = page.getByText(/Fehlende Angaben/);
+
+  if (await address.count()) {
+    await expect(address).toContainText("E-Mail:");
+    await expect(warning).toHaveCount(0);
+  } else {
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText("IMPRESSUM_");
+  }
+});

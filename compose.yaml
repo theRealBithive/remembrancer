@@ -97,6 +97,17 @@ services:
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set in .env}
       SITE_URL: ${SITE_URL:?set in .env}
       SITE_NAME: ${SITE_NAME:-Remembrancer}
+      # Anbieterkennzeichnung for /legal. Not baked into the image: an Impressum has
+      # to be accurate (§5 DDG) and correctable without a rebuild.
+      IMPRESSUM_NAME: ${IMPRESSUM_NAME:-}
+      IMPRESSUM_STREET: ${IMPRESSUM_STREET:-}
+      IMPRESSUM_CITY: ${IMPRESSUM_CITY:-}
+      IMPRESSUM_COUNTRY: ${IMPRESSUM_COUNTRY:-}
+      IMPRESSUM_EMAIL: ${IMPRESSUM_EMAIL:-}
+      IMPRESSUM_PHONE: ${IMPRESSUM_PHONE:-}
+      IMPRESSUM_VAT_ID: ${IMPRESSUM_VAT_ID:-}
+      IMPRESSUM_EDITORIAL_RESPONSIBLE: ${IMPRESSUM_EDITORIAL_RESPONSIBLE:-}
+      IMPRESSUM_SUPERVISORY_AUTHORITY: ${IMPRESSUM_SUPERVISORY_AUTHORITY:-}
     volumes:
       # Survives redeploys, so a restart mid-federation doesn't dump the whole
       # preview-fetch herd onto Django.

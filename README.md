@@ -46,9 +46,10 @@ whatever URL the builder happened to have.
 
 ### Before going public
 
-- Fill in the Impressum placeholder in `frontend/app/legal/page.tsx` with your real
-  contact details (§5 DDG). The privacy section is already accurate for what the code
-  does; keep it in step if the processing changes.
+- Set the `IMPRESSUM_*` values in `.env` (§5 DDG). Until name, street, city and email
+  are all present, `/legal` says it is unconfigured rather than pretending — but the
+  site will still serve, so check it. The privacy section is already accurate for what
+  the code does; keep it in step if the processing changes.
 - `check --deploy` runs automatically before gunicorn starts and refuses to boot on
   placeholder secrets, a missing `REVALIDATE_SECRET`, a non-HTTPS `SITE_URL`, or
   SQLite. It is skipped when `DJANGO_DEBUG` is true, so a container that starts in
