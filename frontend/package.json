@@ -1,0 +1,34 @@
+{
+  "name": "remembrancer-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.2.12",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.0"
+  },
+  "comments": {
+    "pnpm.overrides.baseline-browser-mapping": "Transitive dep of browserslist. Pinned back one patch: the newest release is younger than the minimumReleaseAge supply-chain policy allows. Bump once it ages out."
+  },
+  "pnpm": {
+    "overrides": {
+      "baseline-browser-mapping": "2.11.3"
+    }
+  }
+}

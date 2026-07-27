@@ -1,0 +1,120 @@
+name: remembrancer
+
+x-django-env: &django-env
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set in .env}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+  DJANGO_ADMIN_PATH: ${DJANGO_ADMIN_PATH:-admin}
+  SITE_URL: ${SITE_URL:?set in .env}
+  SITE_NAME: ${SITE_NAME:-Remembrancer}
+  DATABASE_URL: ${DATABASE_URL:?set in .env}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  ABS_BASE_URL: ${ABS_BASE_URL}
+  ABS_TOKEN: ${ABS_TOKEN}
+  ABS_LIBRARY_IDS: ${ABS_LIBRARY_IDS:-}
+  REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set in .env}
+  NEXT_INTERNAL_URL: ${NEXT_INTERNAL_URL:-http://next:3000}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: ./backend
+    restart: unless-stopped
+    environment: *django-env
+    volumes:
+      - media:/app/media
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    # `check --deploy` is a startup gate, not documentation: it refuses to boot on a
+    # placeholder SECRET_KEY, a missing REVALIDATE_SECRET, a non-HTTPS SITE_URL (which
+    # would silently break admin login behind the proxy), or SQLite. Skipped when
+    # DJANGO_DEBUG is true.
+    command: >
+      sh -c "python manage.py check --deploy --fail-level ERROR &&
+             python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             exec gunicorn remembrancer.wsgi:application --bind 0.0.0.0:8000
+                  --workers 3 --timeout 120 --access-logfile - --error-logfile -"
+
+  qcluster:
+    build: ./backend
+    restart: unless-stopped
+    environment: *django-env
+    volumes:
+      - media:/app/media
+    depends_on:
+      web: { condition: service_started }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    # Runs the nightly ABS mirror. Shares the media volume because the sync writes
+    # cover files that the proxy then serves.
+    command: ["python", "manage.py", "qcluster"]
+
+  next:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set in .env}
+        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Remembrancer}
+    restart: unless-stopped
+    environment:
+      DJANGO_INTERNAL_URL: ${DJANGO_INTERNAL_URL:-http://web:8000}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set in .env}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Remembrancer}
+    volumes:
+      # Survives redeploys, so a restart mid-federation doesn't dump the whole
+      # preview-fetch herd onto Django.
+      - next-cache:/app/.next/cache
+    depends_on:
+      web: { condition: service_started }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_HOST: ${SITE_HOST:-localhost}
+      DJANGO_ADMIN_PATH: ${DJANGO_ADMIN_PATH:-admin}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - media:/srv/media:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+      - next
+
+volumes:
+  postgres-data:
+  media:
+  next-cache:
+  caddy-data:
+  caddy-config:

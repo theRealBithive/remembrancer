@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/* --------------------------------------------------------------------------
+   Strictly neutral palette. Book covers are the only chroma on the page
+   (Decision 18), so the greys are shifted cool/violet rather than warm --
+   most cover art is warm, and the complement is what makes it read as colour.
+   -------------------------------------------------------------------------- */
+:root {
+  --paper: #f4f4f6;
+  --ink: #16151c;
+  --muted: #6b6976;
+  --rule: #d6d5dc;
+  --raised: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131318;
+    --ink: #edecf1;
+    --muted: #8b8996;
+    --rule: #2b2a33;
+    --raised: #1b1a22;
+  }
+}
+
+/* `inline` emits var() references instead of resolving at build time -- that is what
+   lets the media query above actually switch the palette. A plain @theme block
+   cannot be nested in a media query; doing so silently applies one palette always. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-raised: var(--raised);
+
+  --font-display: var(--font-bodoni), Didot, "Bodoni MT", serif;
+  --font-body: var(--font-newsreader), Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* Prose measure. Generous, per the brief. */
+:root {
+  --measure: 62ch;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Keyboard focus stays visible everywhere; never trade it for tidiness. */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Review body. The HTML arrives pre-sanitized from Django (nh3), so this only
+   has to style an allowlisted set of tags.
+   -------------------------------------------------------------------------- */
+.prose {
+  max-width: var(--measure);
+  font-size: 1.125rem;
+  line-height: 1.75;
+}
+.prose > * + * {
+  margin-top: 1.4em;
+}
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.2;
+  margin-top: 2.2em;
+}
+.prose h2 {
+  font-size: 1.6rem;
+}
+.prose h3 {
+  font-size: 1.3rem;
+}
+.prose a {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--color-muted);
+}
+.prose a:hover {
+  text-decoration-color: var(--color-ink);
+}
+.prose blockquote {
+  border-left: 1px solid var(--color-rule);
+  padding-left: 1.25rem;
+  font-style: italic;
+  color: var(--color-muted);
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.4rem;
+}
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose li + li {
+  margin-top: 0.4em;
+}
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+.prose pre {
+  overflow-x: auto;
+  padding: 1rem;
+  background: var(--color-raised);
+  border: 1px solid var(--color-rule);
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.prose th,
+.prose td {
+  border-bottom: 1px solid var(--color-rule);
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  text-align: left;
+}

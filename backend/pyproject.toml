@@ -1,0 +1,65 @@
+[project]
+name = "remembrancer-backend"
+version = "0.1.0"
+description = "Django backend for Remembrancer: mirrors Audiobookshelf, hosts reviews."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.2,<5.3",           # LTS, security support to 2028-04-30
+    "django-ninja>=1.6,<2",
+    "django-q2>=1.10,<2",
+    "django-environ>=0.12",
+    "django-axes>=8.0",
+    "psycopg[binary]>=3.2",
+    "redis>=5.2",
+    "django-redis>=5.4",
+    "gunicorn>=23.0",
+    "requests>=2.32",
+    "Pillow>=11.0",
+    "markdown-it-py[linkify]>=3.0",
+    "nh3>=0.2.20",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "pytest-env>=1.1",
+    "responses>=0.25",
+    "ruff>=0.9",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "remembrancer.settings"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+
+# Pinned via pytest-env so they are set before pytest-django initializes Django.
+# settings.py reads the repo-root .env for developer convenience; that file points at
+# the compose services, and a test run must never depend on -- or be able to reach --
+# a real database.
+env = [
+    "DATABASE_URL=sqlite://:memory:",
+    "REDIS_URL=",
+    "DJANGO_SECRET_KEY=test-only-key",
+    "REVALIDATE_SECRET=",
+    "SITE_URL=https://remembrancer.test",
+    "ABS_BASE_URL=https://abs.test",
+    "ABS_TOKEN=test-token",
+    "ABS_LIBRARY_IDS=",
+    "DJANGO_ADMIN_PATH=steward",
+    "DJANGO_DEBUG=false",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ", "S"]
+ignore = ["S101"]  # assert is fine in tests
+
+[tool.ruff.lint.per-file-ignores]
+"*/migrations/*" = ["E501"]
+# S105/S106: fixture values that only look like credentials. Real secrets come from
+# the environment and are guarded by remembrancer.checks.
+"tests/*" = ["S105", "S106"]

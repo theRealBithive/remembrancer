@@ -1,0 +1,145 @@
+# Remembrancer
+
+A single-author public audiobook review site, sourced from a self-hosted
+[Audiobookshelf](https://github.com/advplyr/audiobookshelf) instance.
+
+Django mirrors the library nightly and surfaces a queue of finished-but-unreviewed
+books. You write in the Django admin. Next.js serves statically-generated public
+pages with OpenGraph tags, so a link posted to Mastodon renders a proper card.
+
+`DESIGN.md` records the 20 decisions behind the architecture and why each was made.
+
+**Status: P1 (read) complete.** P2 is Mastodon syndication, P3 is view counting.
+
+---
+
+## Stack
+
+Django 5.2 LTS · django-ninja · django-q2 · Postgres 17 · Redis 7 ·
+Next.js 16 / React 19 · Caddy · uv + pnpm
+
+## Getting started
+
+```bash
+cp .env.example .env      # then fill it in -- every value is explained inline
+docker compose up -d --build   # `web` exits until the change-me secrets are replaced
+docker compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py sync_abs       # first mirror
+docker compose exec web python manage.py revalidate_all  # warm the page cache
+```
+
+Then open `https://<your-domain>/<DJANGO_ADMIN_PATH>/` and write something.
+
+### Before going public
+
+- Fill in the Impressum placeholder in `frontend/app/legal/page.tsx` with your real
+  contact details (§5 DDG). The privacy section is already accurate for what the code
+  does; keep it in step if the processing changes.
+- `check --deploy` runs automatically before gunicorn starts and refuses to boot on
+  placeholder secrets, a missing `REVALIDATE_SECRET`, a non-HTTPS `SITE_URL`, or
+  SQLite. It is skipped when `DJANGO_DEBUG` is true, so a container that starts in
+  development says nothing about production.
+
+## Everyday operations
+
+| | |
+|---|---|
+| `manage.py sync_abs` | Mirror ABS now. Runs nightly via django-q2; also an admin action. |
+| `manage.py revalidate_all` | Rebuild every cached page. Run after each deploy — a fresh `next build` can't reach Django, so the index ships empty. |
+| `docker compose logs -f qcluster` | Watch the scheduled sync. |
+
+An expired `ABS_TOKEN` makes the sync fail loudly (non-zero exit, failed django-q2
+task). That is deliberate: a silent failure would leave the finished-book queue
+permanently empty while every run still looked successful.
+
+## Tests
+
+```bash
+cd backend && uv run pytest && uv run ruff check .
+cd e2e && BASE_URL=https://<your-domain> pnpm exec playwright test
+```
+
+The Playwright suite needs the full stack behind the proxy, because it checks
+same-origin routing and that `/feed.xml` is served by Django.
+
+**Run it with `DJANGO_DEBUG=false`, over TLS.** With DEBUG on, `SECURE_SSL_REDIRECT`,
+HSTS, secure cookies and `CSRF_TRUSTED_ORIGINS` are all inert, so a green suite proves
+nothing about how the site behaves once deployed. Locally that means mapping Caddy's
+443 and pointing `SITE_URL` at it — Caddy issues an internal cert for `localhost`, and
+`playwright.config.ts` sets `ignoreHTTPSErrors` for exactly that:
+
+```yaml
+# compose.override.yaml
+services:
+  caddy:
+    ports: !override
+      - "8443:443"
+```
+```
+SITE_HOST=localhost   SITE_URL=https://localhost:8443   DJANGO_DEBUG=false
+NEXT_PUBLIC_SITE_URL=https://localhost:8443
+```
+
+`tests/production-posture.spec.ts` covers what only exists in that configuration —
+no redirect loop, HSTS, HTTP upgraded to HTTPS, and admin login answering 302 with the
+site's own origin but 403 from a foreign one. Those tests skip themselves when
+`BASE_URL` is not HTTPS, so a plain-HTTP run reports skips rather than false green. The
+admin cases additionally need `ADMIN_USER` / `ADMIN_PASSWORD`.
+
+```bash
+cd e2e && BASE_URL=https://localhost:8443 HTTP_BASE_URL=http://localhost:8081 \
+  ADMIN_USER=… ADMIN_PASSWORD=… pnpm exec playwright test
+```
+
+## CI
+
+`.github/workflows/ci.yml` runs three jobs on every push and pull request:
+
+| | |
+|---|---|
+| `backend` | ruff, then pytest against in-memory SQLite — no service container needed. |
+| `frontend` | typecheck, build, and **fail if `/reviews/[slug]` is no longer `●`**. |
+| `e2e` | builds and starts all six services in production posture, seeds demo content, runs the full Playwright suite. |
+
+The `e2e` job also asserts that `web` *refuses* to boot on the placeholder secrets in
+`.env.example`. Running CI with `DJANGO_DEBUG=true` would be the cheaper option and
+would defeat the point: the class of bug this catches — SSL redirects, CSRF origins,
+proxy headers — is invisible with DEBUG on.
+
+### The one check that must not regress
+
+```bash
+cd frontend && pnpm build
+```
+
+`/reviews/[slug]` must appear as `●` (SSG), never `ƒ` (Dynamic). Reading
+`headers()`, `cookies()`, or `searchParams` anywhere in that subtree silently opts
+the route into dynamic rendering. The build still succeeds and the OG tags still look
+correct — the only symptom is that Django starts absorbing every federated preview
+fetch, which is exactly what static rendering exists here to prevent.
+
+## Architecture notes worth knowing before you change something
+
+**Django owns `/api/*`.** Caddy routes it there, so Next.js can never own a public
+`/api` route. Its internal `/api/revalidate` hook is therefore reachable only on the
+docker network; the HMAC on it is defence in depth, not the sole control.
+
+**Next's internal fetches must send `X-Forwarded-Proto: https`.** `lib/api.ts` sets it
+on every call. The hop to `web:8000` is plaintext by design — TLS terminates at Caddy —
+but Django runs `SECURE_SSL_REDIRECT` in production, so without the header it answers
+302 to `https://web:8000`, where gunicorn speaks plaintext. The redirect hangs until the
+connect timeout and every page 500s. Those fetches also set `redirect: "error"` so a
+regression fails loudly instead of hanging. None of this is visible with DEBUG on.
+
+**Same origin for everything.** That is what removes CORS configuration and
+cross-site CSRF from the design entirely. Splitting the frontend onto another host
+brings both back.
+
+**`.next/cache` is a volume.** Without it, a redeploy during a federated post means a
+cold cache and the full preview-fetch herd lands on Django.
+
+**Slugs freeze at first publish.** A federated Mastodon post cannot be recalled, so a
+published URL must never 404.
+
+**ABS is a source, not a dependency.** Metadata and covers are copied locally. A book
+removed upstream is flagged orphaned, never deleted — its review survives.

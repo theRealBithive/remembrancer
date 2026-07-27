@@ -1,0 +1,37 @@
+# secrets
+.env
+*.pem
+
+# local-only compose tweaks (ports, mounts); the deployment config is compose.yaml
+compose.override.yaml
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# django
+/backend/media/
+/backend/staticfiles/
+*.sqlite3
+
+# node
+node_modules/
+.next/
+/frontend/out/
+/frontend/next-env.d.ts
+/frontend/build.log
+*.tsbuildinfo
+
+# playwright
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/.cache/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/

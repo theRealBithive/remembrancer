@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /legal
+
+# The feed is the intended way to follow along.
