@@ -12,8 +12,10 @@ import hashlib
 import io
 import logging
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from django.core.files.base import ContentFile
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from PIL import Image, UnidentifiedImageError
 
@@ -66,6 +68,60 @@ def _join(values) -> str:
     return ", ".join(names)
 
 
+def _timestamp(value) -> datetime | None:
+    """ABS timestamps are epoch **milliseconds**, not ISO strings.
+
+    Observed against a live instance: `finishedAt` comes back as an integer, so the
+    obvious `parse_datetime(value or "")` raises TypeError rather than returning None
+    -- a truthy non-string sails past the guard. Both shapes are accepted here because
+    the ABS API is not consistent about it across versions and endpoints.
+    """
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, str) and not value.lstrip("-").isdigit():
+        parsed = parse_datetime(value)
+        if parsed is None:
+            return None
+        return parsed if timezone.is_aware(parsed) else timezone.make_aware(parsed, UTC)
+
+    try:
+        epoch = float(value)
+    except (TypeError, ValueError):
+        return None
+    if epoch <= 0:
+        return None
+    # Milliseconds since ~1973 exceed this; seconds would not reach it until the year
+    # 5138. Anything larger is therefore ms.
+    if epoch > 1e11:
+        epoch /= 1000
+    try:
+        return datetime.fromtimestamp(epoch, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def _text(value) -> str:
+    """Coerce to a stripped string rather than assuming ABS sent one.
+
+    `(value or "").strip()` raises AttributeError the moment a field arrives as a
+    number -- an ISBN or a series sequence, both of which ABS has been seen to emit
+    unquoted. A first sync is not the place to discover that.
+    """
+    if value is None or isinstance(value, (list, dict)):
+        return ""
+    return str(value).strip()
+
+
+def _duration(value) -> int | None:
+    """Seconds, as a whole number. ABS sends a float."""
+    try:
+        seconds = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return seconds if seconds > 0 else None
+
+
 def _year(value) -> int | None:
     try:
         year = int(str(value)[:4])
@@ -83,25 +139,25 @@ def extract_fields(item: dict) -> dict:
     if isinstance(first_series, str):
         first_series = {"name": first_series}
 
-    title = (meta.get("title") or "").strip()
+    title = _text(meta.get("title"))
     authors = _join(meta.get("authors") or meta.get("authorName"))
     duration = media.get("duration") or meta.get("duration")
 
     return {
-        "abs_library_id": item.get("libraryId") or "",
-        "asin": (meta.get("asin") or "").strip(),
-        "isbn": (meta.get("isbn") or "").strip(),
+        "abs_library_id": _text(item.get("libraryId")),
+        "asin": _text(meta.get("asin")),
+        "isbn": _text(meta.get("isbn")),
         "match_key": normalize_match_key(title, authors.split(",")[0] if authors else ""),
         "title": title or "(untitled)",
-        "subtitle": (meta.get("subtitle") or "").strip(),
+        "subtitle": _text(meta.get("subtitle")),
         "authors": authors,
         "narrators": _join(meta.get("narrators") or meta.get("narratorName")),
-        "series": (first_series.get("name") or "").strip(),
-        "series_sequence": str(first_series.get("sequence") or "").strip(),
-        "publisher": (meta.get("publisher") or "").strip(),
+        "series": _text(first_series.get("name")),
+        "series_sequence": _text(first_series.get("sequence")),
+        "publisher": _text(meta.get("publisher")),
         "published_year": _year(meta.get("publishedYear") or meta.get("publishedDate")),
-        "description": (meta.get("description") or "").strip(),
-        "duration_seconds": int(duration) if duration else None,
+        "description": _text(meta.get("description")),
+        "duration_seconds": _duration(duration),
     }
 
 
@@ -116,6 +172,15 @@ def cover_fingerprint(item: dict) -> str:
     if not any(parts):
         return ""
     return hashlib.sha256("|".join(parts).encode()).hexdigest()
+
+
+def no_cover(fingerprint: str) -> str:
+    """Marker stored in `cover_source_hash` when ABS reports no cover for an item.
+
+    Distinct from the bare fingerprint so the two states stay tellable apart: "cover
+    fetched at this version" versus "confirmed absent at this version".
+    """
+    return f"{fingerprint}:none"
 
 
 def store_cover(book: Book, raw: bytes) -> None:
@@ -190,17 +255,20 @@ def sync(client: AbsClient | None = None) -> SyncReport:
 
             entry = progress.get(abs_id) or {}
             finished = bool(entry.get("isFinished"))
-            finished_at = parse_datetime(entry.get("finishedAt") or "") if entry.get(
-                "finishedAt"
-            ) else None
+            finished_at = _timestamp(entry.get("finishedAt"))
             if book.is_finished != finished or book.finished_at != finished_at:
                 book.is_finished = finished
                 book.finished_at = finished_at
                 dirty = True
 
             fingerprint = cover_fingerprint(item)
-            needs_cover = bool(fingerprint) and (
-                fingerprint != book.cover_source_hash or not book.cover
+            # `not book.cover` is what recovers a wiped media volume: the hash still
+            # matches but the file is gone, so re-download. NO_COVER records that ABS
+            # itself has none, which that clause would otherwise retry forever.
+            needs_cover = (
+                bool(fingerprint)
+                and book.cover_source_hash != no_cover(fingerprint)
+                and (fingerprint != book.cover_source_hash or not book.cover)
             )
             if needs_cover:
                 try:
@@ -213,6 +281,14 @@ def sync(client: AbsClient | None = None) -> SyncReport:
                     # A bad cover must not abort the run or lose the metadata.
                     report.cover_errors.append(f"{fields['title']}: {exc}")
                     log.warning("Cover fetch failed for %s: %s", fields["title"], exc)
+                    if exc.status == 404:
+                        # Durably absent, unlike a timeout or a 5xx. A library with
+                        # coverless items would otherwise log the same warnings on
+                        # every scheduled run, which trains you to ignore the output.
+                        # An upstream edit changes the fingerprint and so retries.
+                        book.cover_source_hash = no_cover(fingerprint)
+                        dirty = True
+                        dirty = True
 
             if dirty:
                 book.save()

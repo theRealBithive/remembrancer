@@ -23,7 +23,15 @@ PAGE_SIZE = 100
 
 
 class AbsError(RuntimeError):
-    """Any failure talking to ABS."""
+    """Any failure talking to ABS.
+
+    Carries the HTTP status where there was one, so callers can tell a durable "this
+    does not exist" from a transient failure worth retrying.
+    """
+
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 class AbsAuthError(AbsError):
@@ -59,7 +67,7 @@ class AbsClient:
                 "Regenerate ABS_TOKEN -- sync is stopped until you do."
             )
         if not resp.ok:
-            raise AbsError(f"GET {path} returned {resp.status_code}")
+            raise AbsError(f"GET {path} returned {resp.status_code}", status=resp.status_code)
         return resp
 
     # -- endpoints ----------------------------------------------------------

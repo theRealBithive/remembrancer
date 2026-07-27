@@ -7,10 +7,11 @@ never destroys a book a review points at; a 401 is fatal and visible.
 import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.utils import timezone
 
-from catalog.abs import AbsAuthError
+from catalog.abs import AbsAuthError, AbsError
 from catalog.models import Book, normalize_match_key
-from catalog.sync import sync
+from catalog.sync import _timestamp, sync
 from reviews.models import Review
 from tests.conftest import FakeAbsClient, abs_item
 
@@ -140,18 +141,111 @@ def test_returning_item_clears_the_orphan_flag():
     assert Book.objects.get().is_orphaned is False
 
 
-def test_finished_progress_populates_the_queue():
+@pytest.mark.parametrize(
+    "finished_at",
+    [
+        pytest.param(1783843200000, id="epoch-milliseconds"),   # what ABS actually sends
+        pytest.param("2026-07-01T20:00:00Z", id="iso-string"),
+    ],
+)
+def test_finished_progress_populates_the_queue(finished_at):
+    """`finishedAt` arrives as an integer from a real instance.
+
+    The suite originally only exercised the ISO form, so `parse_datetime` blew up with
+    a TypeError on the first live sync: a non-string is still truthy, so it sailed past
+    the `or ""` guard instead of being rejected.
+    """
     client = FakeAbsClient(
         items=[abs_item()],
         progress={"item-1": {"libraryItemId": "item-1", "isFinished": True,
-                             "finishedAt": "2026-07-01T20:00:00Z"}},
+                             "finishedAt": finished_at}},
     )
     sync(client)
 
     book = Book.objects.get()
     assert book.is_finished is True
     assert book.finished_at is not None
+    assert book.finished_at.year == 2026
+    assert timezone.is_aware(book.finished_at)
     assert Book.objects.filter(is_finished=True, review__isnull=True).count() == 1
+
+
+@pytest.mark.parametrize(
+    ("value", "expected_year"),
+    [
+        (1783843200000, 2026),      # milliseconds
+        (1783843200, 2026),         # seconds
+        ("1783843200000", 2026),    # numeric string
+        ("2026-07-01T20:00:00Z", 2026),
+        ("2026-07-01 20:00:00", 2026),   # naive -> made aware, not dropped
+        (None, None),
+        ("", None),
+        (0, None),
+        ("not a date", None),
+        ([], None),                 # never raise on an unexpected shape
+    ],
+)
+def test_timestamp_accepts_every_shape_abs_emits(value, expected_year):
+    result = _timestamp(value)
+
+    if expected_year is None:
+        assert result is None
+    else:
+        assert result.year == expected_year
+        assert timezone.is_aware(result), "a naive datetime would raise on save"
+
+
+def test_a_missing_cover_is_not_re_requested_every_night():
+    """404 means ABS has no cover, which will still be true tomorrow.
+
+    Retrying it forever means a library with coverless items logs the same warnings
+    on every scheduled run, which trains you to ignore the sync output.
+    """
+    class NoCover(FakeAbsClient):
+        def cover_bytes(self, item_id):
+            self.cover_calls += 1
+            raise AbsError("no cover", status=404)
+
+    client = NoCover(items=[abs_item()])
+    first = sync(client)
+    second = sync(client)
+
+    assert len(first.cover_errors) == 1
+    assert second.cover_errors == [], "a known-absent cover must not be retried"
+    assert client.cover_calls == 1
+
+
+def test_a_transient_cover_failure_is_retried():
+    """A 5xx is not evidence the cover is missing, so it must not be banked."""
+    class Flaky(FakeAbsClient):
+        def cover_bytes(self, item_id):
+            self.cover_calls += 1
+            if self.cover_calls == 1:
+                raise AbsError("upstream hiccup", status=503)
+            return self.cover, "image/jpeg"
+
+    client = Flaky(items=[abs_item()])
+    sync(client)
+    sync(client)
+
+    assert client.cover_calls == 2
+    assert Book.objects.get().cover
+
+
+def test_unquoted_numeric_metadata_does_not_crash_the_sync():
+    """ABS does not consistently quote these. A first sync must not die on one."""
+    item = abs_item()
+    item["media"]["metadata"].update({"isbn": 9780593135204, "asin": 12345})
+    item["media"]["metadata"]["series"] = [{"name": "Standalone", "sequence": 2}]
+    item["media"]["duration"] = 57600.75
+
+    sync(FakeAbsClient(items=[item]))
+
+    book = Book.objects.get()
+    assert book.isbn == "9780593135204"
+    assert book.asin == "12345"
+    assert book.series_sequence == "2"
+    assert book.duration_seconds == 57600
 
 
 def test_metadata_edits_upstream_overwrite_the_mirror():
