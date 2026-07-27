@@ -12,7 +12,6 @@ export const metadata: Metadata = {
 // frozen at build time would print whatever the image was built with.
 export const revalidate = 3600;
 
-const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000";
 
 /**
  * Impressum (§5 DDG) and privacy notice.
@@ -110,19 +109,6 @@ export default function LegalPage() {
         Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der
         Verarbeitung, Datenübertragbarkeit und Widerspruch sowie ein Beschwerderecht
         bei einer Aufsichtsbehörde
-        {data.supervisoryAuthority ? ` (${data.supervisoryAuthority})` : ""}. Kontakt:
-        siehe Impressum.
-      </p>
-
-      <h3>Hinweis zur Buchdatenquelle</h3>
-      <p>
-        Titel-, Autoren- und Coverangaben stammen aus meiner privaten
-        Audiobookshelf-Instanz und werden serverseitig gespiegelt. Beim Aufruf dieser
-        Seite besteht keine Verbindung zu dieser Instanz.
-      </p>
-
-      <p className="text-sm text-muted">
-        Diese Seite: <a href={SITE_URL}>{SITE_URL}</a>
       </p>
     </div>
   );
