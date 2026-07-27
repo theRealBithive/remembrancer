@@ -85,7 +85,11 @@ def check_production_secrets(app_configs, **kwargs):
             )
         )
 
-    if settings.MASTODON_VISIBILITY not in ("public", "unlisted", "private", "direct"):
+    # Only when syndication is actually on. `check --deploy` gates gunicorn startup,
+    # and a typo in an optional variable must not take the whole site down.
+    if settings.MASTODON_BASE_URL and settings.MASTODON_VISIBILITY not in (
+        "public", "unlisted", "private", "direct"
+    ):
         problems.append(
             Error(
                 f"MASTODON_VISIBILITY is {settings.MASTODON_VISIBILITY!r}, which the API "

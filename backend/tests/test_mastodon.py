@@ -206,6 +206,39 @@ def queue_and_capture(admin_action, rf, admin_user, monkeypatch, queryset):
     return queued, messages
 
 
+def test_the_queued_dotted_path_actually_resolves():
+    """The action stubs async_task, so nothing else proves this string is right.
+
+    django-q2's worker resolves the task with `pydoc.locate`, which returns None on a
+    typo -- the admin would report "Queued" and the toot would never appear.
+    """
+    import pydoc
+
+    assert pydoc.locate("reviews.tasks.post_review_to_mastodon") is (
+        tasks.post_review_to_mastodon
+    )
+
+
+def test_recording_a_toot_does_not_revalidate_the_page(mastodon, published_review, monkeypatch):
+    """Nothing a reader can see changed, so it must not stampede Next."""
+    from django.db import transaction
+
+    calls = []
+    monkeypatch.setattr("reviews.signals.revalidate", lambda paths: calls.append(paths))
+    monkeypatch.setattr(transaction, "on_commit", lambda fn, **kw: fn())
+
+    with responses.RequestsMock() as rsps:
+        rsps.post(URL, json={"id": "110"})
+        tasks.post_review_to_mastodon(published_review.pk)
+
+    assert calls == []
+
+    # ...and the guard has not simply switched revalidation off.
+    published_review.summary = "Revised."
+    published_review.save()
+    assert calls == [["/", f"/reviews/{published_review.slug}"]]
+
+
 def test_changelist_offers_the_action_and_renders_the_column(
     client, settings, published_review
 ):
