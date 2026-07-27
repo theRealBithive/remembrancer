@@ -6,7 +6,10 @@ ENV PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH"
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Pinned, not :latest. An unpinned tag makes the image unreproducible and puts an
+# unreviewed third-party binary into every build; it is also a pull that can fail on
+# its own schedule, which is how this line took CI down once.
+COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /usr/local/bin/uv
 
 WORKDIR /app
 

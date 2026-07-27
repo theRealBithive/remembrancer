@@ -1,0 +1,17 @@
+# The host virtualenv is ~150 MB of Fedora-linked binaries. `uv sync` rebuilds it
+# inside the image anyway, so copying it in only bloats the context and makes a local
+# build differ from CI, where it does not exist.
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime state, not source. Both are volumes in the deployment.
+media/
+staticfiles/
+*.sqlite3
+
+.env

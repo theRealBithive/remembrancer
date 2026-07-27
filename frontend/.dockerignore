@@ -1,0 +1,9 @@
+# Installed fresh in the deps stage; a host copy would be the wrong platform.
+node_modules/
+# Built inside the image.
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+build.log
+.env*
