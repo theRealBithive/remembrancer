@@ -5,6 +5,12 @@
 # local-only compose tweaks (ports, mounts); the deployment config is compose.yaml
 compose.override.yaml
 
+# Private deployment topology: the VPS runs behind an existing Traefik with its own
+# nginx edge. That is one operator's infrastructure, not part of the project -- the
+# shipped compose.yaml is the reference stack.
+compose.traefik.yaml
+/nginx/
+
 # python
 __pycache__/
 *.py[cod]
