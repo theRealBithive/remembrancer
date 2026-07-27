@@ -111,7 +111,7 @@ export default function LegalPage() {
       <p>
         Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der
         Verarbeitung, Datenübertragbarkeit und Widerspruch sowie ein Beschwerderecht
-        bei einer Aufsichtsbehörde
+        bei einer Aufsichtsbehörde. Kontakt: siehe Impressum.
       </p>
     </div>
   );

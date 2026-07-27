@@ -107,7 +107,6 @@ services:
       IMPRESSUM_PHONE: ${IMPRESSUM_PHONE:-}
       IMPRESSUM_VAT_ID: ${IMPRESSUM_VAT_ID:-}
       IMPRESSUM_EDITORIAL_RESPONSIBLE: ${IMPRESSUM_EDITORIAL_RESPONSIBLE:-}
-      IMPRESSUM_SUPERVISORY_AUTHORITY: ${IMPRESSUM_SUPERVISORY_AUTHORITY:-}
     volumes:
       # Survives redeploys, so a restart mid-federation doesn't dump the whole
       # preview-fetch herd onto Django.

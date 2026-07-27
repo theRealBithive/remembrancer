@@ -17,8 +17,6 @@ export type Impressum = {
   vatId: string;
   /** §18 Abs. 2 MStV — only required for journalistic-editorial content. */
   editorialResponsible: string;
-  /** Supervisory authority for the DSGVO rights section. */
-  supervisoryAuthority: string;
 };
 
 const FIELDS: Record<keyof Impressum, string> = {
@@ -30,7 +28,6 @@ const FIELDS: Record<keyof Impressum, string> = {
   phone: "IMPRESSUM_PHONE",
   vatId: "IMPRESSUM_VAT_ID",
   editorialResponsible: "IMPRESSUM_EDITORIAL_RESPONSIBLE",
-  supervisoryAuthority: "IMPRESSUM_SUPERVISORY_AUTHORITY",
 };
 
 export function impressum(): Impressum {
