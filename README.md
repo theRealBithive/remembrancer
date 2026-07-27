@@ -9,7 +9,7 @@ pages with OpenGraph tags, so a link posted to Mastodon renders a proper card.
 
 `DESIGN.md` records the 22 decisions behind the architecture and why each was made.
 
-**Status: P1 (read) complete.** P2 is Mastodon syndication, P3 is view counting.
+**Status: P1 (read) and P2 (Mastodon syndication) complete.** P3 is view counting.
 
 ---
 
@@ -55,12 +55,36 @@ whatever URL the builder happened to have.
   SQLite. It is skipped when `DJANGO_DEBUG` is true, so a container that starts in
   development says nothing about production.
 
+## Posting to Mastodon
+
+Optional and entirely manual: publishing a review does not federate it. That gap is
+the point — a toot cannot be recalled, so a review stays correctable until you decide
+it is finished.
+
+1. On your instance: *Preferences → Development → New application*. Tick **only**
+   `write:statuses`. The resulting token can post and do nothing else — it cannot read
+   your timeline, follow anyone, or see your DMs.
+2. Put it in `.env` as `MASTODON_BASE_URL` (https, no trailing slash) and
+   `MASTODON_TOKEN`, then `docker compose up -d` — settings are read at process start,
+   so `restart` alone will not pick them up.
+3. In the admin, select reviews on the changelist → **Post to Mastodon**. The work is
+   queued to `qcluster`; the *mastodon* column fills in once it lands.
+
+The action refuses drafts (a toot linking to a 404 is worse than no toot) and reports
+anything it skipped rather than pretending it posted. A review federates **at most
+once, ever**: the guard is taken inside the task under `select_for_update()`, because
+django-q2 retries, and `Idempotency-Key` covers the case where the post succeeds but
+the response is lost.
+
+Leave both variables unset and the action simply refuses — nothing else changes.
+
 ## Everyday operations
 
 | | |
 |---|---|
 | `manage.py sync_abs` | Mirror ABS now. Runs nightly via django-q2; also an admin action. |
 | `manage.py revalidate_all` | Rebuild every cached page. Run after each deploy — a fresh `next build` can't reach Django, so the index ships empty. |
+| Admin → Reviews → *Post to Mastodon* | Federate selected published reviews. |
 | `docker compose logs -f qcluster` | Watch the scheduled sync. |
 
 An expired `ABS_TOKEN` makes the sync fail loudly (non-zero exit, failed django-q2

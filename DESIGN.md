@@ -185,9 +185,19 @@ with transaction.atomic():
     review.save(update_fields=[...])
 ```
 
-Body: `summary` + canonical URL + `#bookstodon`, composed against a 500-char budget
-(links count as 23). Cover comes from the OG card — no media upload. Token scope
-`write:statuses`, server-side only.
+Body: `title — authors · N/5`, then `summary`, then the canonical URL and the
+hashtags, composed against a 500-char budget where links count as 23 regardless of
+length. When it does not fit, the summary is trimmed first and the header second: the
+link is the entire reason for posting and the hashtags are what give it reach, so
+neither is ever sacrificed. Cover comes from the OG card — no media upload.
+
+Token scope `write:statuses`, server-side only, and the base URL is required to be
+`https://` — the token rides on that request, so a plaintext instance would hand it
+to the network. Unset credentials are not an error state: the action simply refuses,
+which is what makes syndication genuinely optional.
+
+The action also refuses a draft. A toot linking to a page that does not exist yet is
+worse than no toot, and unlike the page, the toot cannot be fixed later.
 
 ## View counting
 
@@ -255,10 +265,10 @@ print whatever URL the builder happened to have.
 
 ## Phasing
 
-- **P1 — read.** Models, `sync_abs`, admin authoring, Next.js index/detail/RSS with
+- **P1 — read.** *Done.* Models, `sync_abs`, admin authoring, Next.js index/detail/RSS with
   OG tags, `/legal`, revalidate hook, deploy. Solves the stated friction on its own.
   `/legal` is in P1 because it is a precondition for the site being public, not polish.
-- **P2 — reach.** Mastodon action + idempotency.
+- **P2 — reach.** Mastodon action + idempotency. *Done.*
 - **P3 — metrics.** Beacon endpoint, dedup, daily buckets, count display.
 
 ## Deliberately out of scope

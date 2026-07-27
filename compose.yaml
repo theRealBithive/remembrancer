@@ -18,6 +18,14 @@ x-django-env: &django-env
   ABS_BASE_URL: ${ABS_BASE_URL}
   ABS_TOKEN: ${ABS_TOKEN}
   ABS_LIBRARY_IDS: ${ABS_LIBRARY_IDS:-}
+  # Optional. Unset = the "Post to Mastodon" admin action refuses to run. Needed by
+  # `web` (the action checks whether it is configured) and by `qcluster` (which
+  # actually makes the call).
+  MASTODON_BASE_URL: ${MASTODON_BASE_URL:-}
+  MASTODON_TOKEN: ${MASTODON_TOKEN:-}
+  MASTODON_VISIBILITY: ${MASTODON_VISIBILITY:-public}
+  MASTODON_HASHTAGS: ${MASTODON_HASHTAGS:-bookstodon}
+  MASTODON_MAX_CHARS: ${MASTODON_MAX_CHARS:-500}
   REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set in .env}
   NEXT_INTERNAL_URL: ${NEXT_INTERNAL_URL:-http://next:3000}
 

@@ -75,6 +75,26 @@ def check_production_secrets(app_configs, **kwargs):
             )
         )
 
+    if bool(settings.MASTODON_BASE_URL) != bool(settings.MASTODON_TOKEN):
+        problems.append(
+            Warning(
+                "Only one of MASTODON_BASE_URL/MASTODON_TOKEN is set; syndication is "
+                "off and the admin action will refuse to run.",
+                hint="Set both, or neither.",
+                id="remembrancer.W003",
+            )
+        )
+
+    if settings.MASTODON_VISIBILITY not in ("public", "unlisted", "private", "direct"):
+        problems.append(
+            Error(
+                f"MASTODON_VISIBILITY is {settings.MASTODON_VISIBILITY!r}, which the API "
+                "rejects. Every post would fail with a 422.",
+                hint="One of: public, unlisted, private, direct.",
+                id="remembrancer.E005",
+            )
+        )
+
     if settings.ADMIN_PATH == "admin":
         problems.append(
             Warning(

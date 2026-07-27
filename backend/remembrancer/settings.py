@@ -196,6 +196,20 @@ ABS_LIBRARY_IDS = [i for i in env.list("ABS_LIBRARY_IDS", default=[]) if i]
 ABS_TIMEOUT = 30
 ABS_MAX_COVER_BYTES = 10 * 1024 * 1024
 
+# --- Mastodon (P2) ----------------------------------------------------------
+# Optional: unset simply means the admin action is unavailable. The token needs the
+# `write:statuses` scope and nothing more -- it can neither read your timeline nor
+# follow anyone, which is the whole point of scoping it.
+MASTODON_BASE_URL = env("MASTODON_BASE_URL", default="").rstrip("/")
+MASTODON_TOKEN = env("MASTODON_TOKEN", default="")
+MASTODON_VISIBILITY = env("MASTODON_VISIBILITY", default="public")
+MASTODON_HASHTAGS = [t for t in env.list("MASTODON_HASHTAGS", default=["bookstodon"]) if t]
+# Instance default. Some run higher; lowering is safe, raising past the real limit
+# just turns a compose-time trim into a 422 from the server.
+MASTODON_MAX_CHARS = env.int("MASTODON_MAX_CHARS", default=500)
+# Bounds how long the syndication task holds its row lock.
+MASTODON_TIMEOUT = 15
+
 # --- Next.js revalidation --------------------------------------------------
 
 NEXT_INTERNAL_URL = env("NEXT_INTERNAL_URL", default="http://next:3000").rstrip("/")
