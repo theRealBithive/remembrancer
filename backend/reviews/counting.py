@@ -35,6 +35,10 @@ def daily_salt() -> str:
 
     `get_or_set` is add-then-get, so gunicorn workers racing on the first request of
     the day converge on one value instead of each minting their own.
+
+    Rotation is "at most daily", not exactly daily: a Redis restart or an eviction
+    drops the salt early. That direction is harmless -- dedup resets and a few views
+    count twice -- and it errs towards less linkability, never more.
     """
     key = f"viewsalt:{timezone.localdate().isoformat()}"
     return cache.get_or_set(key, lambda: secrets.token_hex(32), timeout=SALT_TTL)

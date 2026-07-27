@@ -169,13 +169,17 @@ def test_the_salt_is_random_and_not_derived_from_the_date(settings):
     """/legal promises the hash is unlinkable after rotation. A predictable salt --
     the date, the SECRET_KEY -- would make that claim false."""
     first = daily_salt()
-    cache.clear()
-    second = daily_salt()
 
-    assert first != second
+    # The load-bearing assertion: it lives in the cache and nowhere else, which is
+    # what makes rotation real. A salt derived from the date or the SECRET_KEY would
+    # survive a restart -- and every past hash would stay recomputable forever.
+    assert cache.get(f"viewsalt:{timezone.localdate().isoformat()}") == first
     assert len(first) == 64
     assert timezone.localdate().isoformat() not in first
     assert settings.SECRET_KEY not in first
+
+    cache.clear()
+    assert daily_salt() != first
 
 
 def test_the_salt_is_stable_within_a_day():
