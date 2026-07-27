@@ -12,7 +12,7 @@ from django_q.tasks import async_task
 
 from catalog.models import Book
 from reviews.mastodon import configured as mastodon_configured
-from reviews.models import Review
+from reviews.models import Review, ReviewViewDay
 
 
 class ReviewForm(forms.ModelForm):
@@ -125,3 +125,20 @@ class ReviewAdmin(admin.ModelAdmin):
             return "— not published yet"
         url = f"{settings.SITE_URL}{obj.get_absolute_path()}"
         return format_html('<a href="{}" target="_blank" rel="noopener">{}</a>', url, url)
+
+
+@admin.register(ReviewViewDay)
+class ReviewViewDayAdmin(admin.ModelAdmin):
+    """Read-only. The numbers are written by the beacon; editing them would only
+    let you lie to yourself."""
+
+    list_display = ("date", "review", "count")
+    list_filter = ("date",)
+    search_fields = ("review__book__title",)
+    date_hierarchy = "date"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

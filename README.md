@@ -9,7 +9,7 @@ pages with OpenGraph tags, so a link posted to Mastodon renders a proper card.
 
 `DESIGN.md` records the 22 decisions behind the architecture and why each was made.
 
-**Status: P1 (read) and P2 (Mastodon syndication) complete.** P3 is view counting.
+**Status: complete through P3** — read, Mastodon syndication, and view counting.
 
 ---
 
@@ -77,6 +77,27 @@ django-q2 retries, and `Idempotency-Key` covers the case where the post succeeds
 the response is lost.
 
 Leave both variables unset and the action simply refuses — nothing else changes.
+
+## View counts
+
+Each review page counts its own reads. The number is fetched by the browser after
+hydration, which is what makes it honest: a Mastodon instance building a preview card
+pulls the HTML and never runs the script, so federating a post does not inflate its
+readership. Those fetches also land on the static cache rather than on Django.
+
+No cookie, no `localStorage`, no fingerprint, and therefore no consent banner. Repeat
+visits are recognised by hashing the address and user agent together with a secret
+random salt that lives only in Redis and rotates daily — once it rotates, yesterday's
+hashes cannot be recomputed by anyone, including you. The only thing written to the
+database is an integer per review per day (admin → *Review view days*).
+
+The endpoint is world-writable, because a counter without a login or a cookie cannot
+be anything else. `VIEW_BEACON_RATE` bounds the noise. Read the numbers as reach, not
+as evidence.
+
+If you change what is processed, `/legal` has to change with it — the privacy section
+there describes this mechanism specifically, and it is a statement to visitors rather
+than a comment.
 
 ## Everyday operations
 

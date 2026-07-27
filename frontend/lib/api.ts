@@ -37,7 +37,8 @@ export type ReviewSummary = {
 
 export type Review = ReviewSummary & {
   body_html: string;
-  view_count: number;
+  // No view count: this response is cached into the static page for up to an hour.
+  // The live number comes from the beacon response, client-side.
 };
 
 /**

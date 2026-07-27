@@ -101,3 +101,29 @@ test("the Impressum is either complete or says it is not", async ({ page }) => {
     await expect(warning).toContainText("IMPRESSUM_");
   }
 });
+
+test("the view counter appears after hydration and not in the served HTML", async ({
+  page,
+  request,
+}) => {
+  // The mirror image of the OpenGraph test: that one proves a preview fetcher sees
+  // the card without running JS, this one proves the same fetcher is never counted.
+  const raw = await (await request.get(`/reviews/${SLUG}`)).text();
+  expect(raw).not.toMatch(/\d+ reads?/);
+
+  await page.goto(`/reviews/${SLUG}`);
+
+  await expect(page.getByText(/^\d+ reads?$/)).toBeVisible();
+});
+
+test("a reload does not count a second time", async ({ page }) => {
+  await page.goto(`/reviews/${SLUG}`);
+  const label = page.getByText(/^\d+ reads?$/);
+  await expect(label).toBeVisible();
+  const first = Number((await label.innerText()).split(" ")[0]);
+
+  await page.reload();
+
+  await expect(label).toBeVisible();
+  expect(Number((await label.innerText()).split(" ")[0])).toBe(first);
+});

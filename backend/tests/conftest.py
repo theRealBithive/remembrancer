@@ -1,6 +1,7 @@
 import io
 
 import pytest
+from django.core.cache import cache
 from PIL import Image
 
 from catalog.models import Book
@@ -20,6 +21,10 @@ def media_root(tmp_path, settings):
     settings.MEDIA_ROOT = tmp_path / "media"
     settings.SITE_URL = "https://remembrancer.test"
     settings.SECURE_SSL_REDIRECT = False
+    # LocMemCache is process-global and survives the per-test transaction rollback, so
+    # without this a view-dedup or throttle key from one test silently suppresses the
+    # next -- a failure that depends on test ordering.
+    cache.clear()
     return settings.MEDIA_ROOT
 
 

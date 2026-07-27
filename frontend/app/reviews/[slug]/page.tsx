@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ListeningLine } from "@/components/listening-line";
 import { Score } from "@/components/score";
+import { ViewCount } from "@/components/view-count";
 import { getReview } from "@/lib/api";
 import { listeningDate, stars } from "@/lib/format";
 
@@ -159,6 +160,11 @@ export default async function ReviewPage({ params }: Props) {
           dangerouslySetInnerHTML={{ __html: review.body_html }}
         />
       )}
+
+      {/* A client component in the tree does not make the route dynamic -- only
+          headers(), cookies() or searchParams would. The CI build check still has to
+          show this route as static. */}
+      <ViewCount slug={review.slug} />
     </article>
   );
 }

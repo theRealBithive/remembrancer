@@ -10,7 +10,9 @@ from __future__ import annotations
 from django.conf import settings
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
+from ninja.throttling import SimpleRateThrottle
 
+from reviews.counting import record_view, visitor_key
 from reviews.models import Review
 
 api = NinjaAPI(
@@ -56,7 +58,13 @@ class ReviewListOut(Schema):
 
 class ReviewOut(ReviewListOut):
     body_html: str
-    view_count: int
+    # Deliberately no view_count: this response is baked into an ISR page for up to an
+    # hour, so any number here would be stale on arrival. The beacon returns the live
+    # one instead.
+
+
+class ViewOut(Schema):
+    count: int
 
 
 def _book(review: Review) -> dict:
@@ -88,7 +96,6 @@ def _serialize(review: Review, *, full: bool) -> dict:
     }
     if full:
         data["body_html"] = review.body_html
-        data["view_count"] = review.view_count
     return data
 
 
@@ -112,3 +119,39 @@ def get_review(request, slug: str):
         # Drafts are indistinguishable from nonexistent slugs from the outside.
         raise HttpError(404, "Not found")
     return _serialize(review, full=True)
+
+
+class VisitorThrottle(SimpleRateThrottle):
+    """Rate-limit the beacon per hashed visitor, not per proxy address.
+
+    Keyed on the same hash the dedup uses, so it costs nothing extra and rotates with
+    the salt. Without it the key would be Caddy's container address and one client
+    would throttle the entire internet.
+    """
+
+    def get_cache_key(self, request):
+        return f"throttle_view_{visitor_key(request)}"
+
+
+@api.post(
+    "/reviews/{slug}/view",
+    response=ViewOut,
+    url_name="review_view",
+    throttle=[VisitorThrottle(rate=settings.VIEW_BEACON_RATE)],
+)
+def count_view(request, slug: str):
+    """Count one view of a published review and return the running total.
+
+    Called by the browser after hydration, which is what keeps the count honest for
+    free: a Mastodon instance building a preview card fetches the HTML and never runs
+    the script, so federation does not register as readership.
+
+    This is a world-writable counter with no authentication, and it cannot be anything
+    else without a cookie or a fingerprint -- both of which the design refuses. The
+    throttle bounds the noise; it is not an integrity control. Treat the number as an
+    indication of reach, never as evidence.
+    """
+    review = published().filter(slug=slug).first()
+    if review is None:
+        raise HttpError(404, "Not found")
+    return {"count": record_view(review, visitor_key(request))}

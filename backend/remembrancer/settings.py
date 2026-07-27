@@ -210,6 +210,11 @@ MASTODON_MAX_CHARS = env.int("MASTODON_MAX_CHARS", default=500)
 # Bounds how long the syndication task holds its row lock.
 MASTODON_TIMEOUT = 15
 
+# --- View counting (P3) ------------------------------------------------------
+# Per hashed visitor, not per address. Generous enough that reading through the whole
+# site in one sitting is never throttled; tight enough that a script has to work at it.
+VIEW_BEACON_RATE = env("VIEW_BEACON_RATE", default="60/h")
+
 # --- Next.js revalidation --------------------------------------------------
 
 NEXT_INTERNAL_URL = env("NEXT_INTERNAL_URL", default="http://next:3000").rstrip("/")

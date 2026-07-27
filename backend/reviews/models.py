@@ -124,3 +124,26 @@ class Review(models.Model):
     @property
     def body_html(self) -> str:
         return render_markdown(self.body_markdown)
+
+
+class ReviewViewDay(models.Model):
+    """One row per review per day. The only thing about a visit that is ever stored.
+
+    Deliberately not a log of visits: there is no timestamp finer than the date, no
+    address, no user agent, nothing joinable back to a person. The dedup hash lives in
+    the cache for six hours and is never written here -- which is exactly what the
+    privacy notice on /legal promises, so this model must not grow columns.
+    """
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="view_days")
+    date = models.DateField()
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["review", "date"], name="unique_review_day")
+        ]
+        ordering = ["-date"]
+
+    def __str__(self) -> str:
+        return f"{self.review.slug} {self.date}: {self.count}"

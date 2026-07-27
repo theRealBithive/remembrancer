@@ -210,10 +210,24 @@ if cache.add(f"v:{slug}:{key}", 1, timeout=6h):
 return {"count": review.view_count}
 ```
 
-The daily salt rotates and is never stored; after rotation the hash is unlinkable.
-No cookie, no device storage → **no consent banner** (GDPR/ePrivacy). Endpoint is
-rate-limited per hashed key. The response carries the count, so the SSG page renders
-it client-side without invalidating the cache.
+The daily salt is `secrets.token_hex(32)`, held only in the cache under a
+`localdate()`-keyed name with a 26 h TTL. It rotates daily and is never stored; after
+rotation the hash cannot be recomputed, by us or by anyone. No cookie, no device
+storage → **no consent banner** (GDPR/ePrivacy). Endpoint is rate-limited per hashed
+key, using the same hash and the same `client_ip()` as the axes lockout.
+
+The response carries the count, so the SSG page renders it client-side without
+invalidating the cache. `ReviewOut` deliberately omits `view_count`: baked into an ISR
+page it would be an hour stale, and rendering it would invite exactly that.
+
+Both increments run as queryset `.update(count=F(...) + 1)`. Going through
+`Review.save()` would widen `update_fields` with the bookkeeping set and fire the
+revalidate signal — every read would then invalidate the page it was counting. A
+queryset update emits no `post_save` at all.
+
+The counter is world-writable and trivially inflatable by anyone willing to rotate a
+user agent. That is inherent to a beacon with no cookie and no login; the throttle
+bounds the noise and is not an integrity control.
 
 ---
 
@@ -269,7 +283,7 @@ print whatever URL the builder happened to have.
   OG tags, `/legal`, revalidate hook, deploy. Solves the stated friction on its own.
   `/legal` is in P1 because it is a precondition for the site being public, not polish.
 - **P2 — reach.** Mastodon action + idempotency. *Done.*
-- **P3 — metrics.** Beacon endpoint, dedup, daily buckets, count display.
+- **P3 — metrics.** Beacon endpoint, dedup, daily buckets, count display. *Done.*
 
 ## Deliberately out of scope
 
