@@ -204,6 +204,8 @@ Caddy/nginx (TLS, one domain)
   /            → Next.js (node, standalone output)
   /api, /admin → Django (gunicorn)
   /media       → cover volume
+  /static      → collectstatic volume (Django serves none of this with DEBUG off;
+                 proxying the prefix to it yields HTML 404s and a broken admin)
 services: web(django) · qcluster(django-q2) · next · postgres · redis · proxy
 ```
 

@@ -28,10 +28,23 @@
 		file_server
 	}
 
-	# Django owns the API, the admin, the feed, and its own static files.
+	# Django's own static files (admin CSS/JS), written by collectstatic into a shared
+	# volume at boot. Django does not serve these itself once DEBUG is off, so proxying
+	# /static/* to it returns an HTML 404 and the browser refuses the script on MIME
+	# grounds -- an admin that loads but does not work.
+	#
+	# Not `immutable` like /media: these filenames are not content-hashed, so a Django
+	# upgrade reuses them with new contents.
+	handle_path /static/* {
+		root * /srv/static
+		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+
+	# Django owns the API, the admin, and the feed.
 	# Consequence worth knowing: Next can never own a public /api/* route, which is
 	# precisely why its internal /api/revalidate hook is unreachable from outside.
-	@django path /api/* /feed.xml /static/* /{$DJANGO_ADMIN_PATH:admin}/*
+	@django path /api/* /feed.xml /{$DJANGO_ADMIN_PATH:admin}/*
 	handle @django {
 		reverse_proxy web:8000 {
 			# Without this, Django never sees a secure request and SECURE_SSL_REDIRECT

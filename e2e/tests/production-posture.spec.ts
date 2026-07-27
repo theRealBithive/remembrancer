@@ -22,6 +22,24 @@ test.describe("production posture", () => {
     expect(res.status()).toBe(200);
   });
 
+  test("Django's static files are served as assets, not as HTML 404s", async ({
+    request,
+  }) => {
+    // With DEBUG off Django serves nothing under /static/ itself. If the proxy routes
+    // the prefix to Django instead of to the collectstatic volume, every admin asset
+    // comes back as an HTML error page and the browser refuses the scripts on MIME
+    // grounds -- an admin that renders unstyled and half-broken.
+    for (const [path, type] of [
+      ["/static/admin/css/base.css", "text/css"],
+      ["/static/admin/js/theme.js", "javascript"],
+    ]) {
+      const res = await request.get(path);
+
+      expect(res.status(), `${path} must exist`).toBe(200);
+      expect(res.headers()["content-type"], `${path} MIME`).toContain(type);
+    }
+  });
+
   test("HSTS is set, which also proves DEBUG is off", async ({ request }) => {
     const res = await request.get("/api/reviews");
 
@@ -70,6 +88,26 @@ test.describe("admin login through the proxy", () => {
 
     expect(res.status(), "403 here means CSRF_TRUSTED_ORIGINS is missing the scheme")
       .toBe(302);
+  });
+
+  test("the changelist renders with its assets, no console errors", async ({ page }) => {
+    const problems: string[] = [];
+    page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
+    page.on("requestfailed", (r) => problems.push(`${r.url()} failed`));
+    page.on("response", (r) => {
+      if (r.url().includes("/static/") && r.status() !== 200) {
+        problems.push(`${r.url()} -> ${r.status()}`);
+      }
+    });
+
+    await page.goto(`/${adminPath}/login/`);
+    await page.getByLabel("Username").fill(username!);
+    await page.getByLabel("Password").fill(password!);
+    await page.getByRole("button", { name: /log in/i }).click();
+    await page.goto(`/${adminPath}/reviews/review/`);
+
+    await expect(page.getByRole("heading", { name: /select review/i })).toBeVisible();
+    expect(problems, "admin assets must load cleanly").toEqual([]);
   });
 
   test("is refused from a foreign origin", async ({ request }) => {

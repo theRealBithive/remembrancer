@@ -131,6 +131,13 @@ but Django runs `SECURE_SSL_REDIRECT` in production, so without the header it an
 connect timeout and every page 500s. Those fetches also set `redirect: "error"` so a
 regression fails loudly instead of hanging. None of this is visible with DEBUG on.
 
+**Caddy serves `/static`, Django never does.** With DEBUG off Django serves nothing
+under `STATIC_URL`; `collectstatic` writes into a volume shared with the proxy at boot.
+Route the prefix to Django instead and every admin asset returns an HTML 404, which the
+browser refuses on MIME grounds — the admin loads unstyled and its JS never runs, while
+the login POST still answers 302, so anything short of opening a page in a browser
+reports success.
+
 **Same origin for everything.** That is what removes CORS configuration and
 cross-site CSRF from the design entirely. Splitting the frontend onto another host
 brings both back.

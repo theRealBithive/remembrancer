@@ -47,6 +47,9 @@ services:
     environment: *django-env
     volumes:
       - media:/app/media
+      # collectstatic writes here at boot; Caddy serves it. Django does not serve its
+      # own static files with DEBUG off, so the proxy needs the files, not a route.
+      - static:/app/staticfiles
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -106,6 +109,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - media:/srv/media:ro
+      - static:/srv/static:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
@@ -115,6 +119,7 @@ services:
 volumes:
   postgres-data:
   media:
+  static:
   next-cache:
   caddy-data:
   caddy-config:
