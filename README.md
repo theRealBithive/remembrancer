@@ -34,6 +34,11 @@ docker compose exec web python manage.py revalidate_all  # warm the page cache
 
 Then open `https://<your-domain>/<DJANGO_ADMIN_PATH>/` and write something.
 
+Only the rating is required. Summary and body are both optional, so a book you have
+nothing more to say about can be published as stars alone — the share card and the
+toot fall back to the opening of the body, and then to the rating stated plainly,
+rather than going out blank.
+
 `docker compose up -d --build` still builds from source instead, which is what local
 development wants. To pin a release rather than track `main`, set `IMAGE_TAG` in `.env`
 to a version tag or `sha-<commit>`; every CI build publishes both.

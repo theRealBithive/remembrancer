@@ -28,7 +28,8 @@ LISTENING PROFILE — exported {{today}} from Audiobookshelf via Remembrancer
 
 Format: one book per line. Fields are separated by " | " and the trailing part is
 always "Title — Author (year, runtime)". A run of "> " lines is my own review of
-that book, in full: first the one-line verdict, then whatever else I wrote.
+that book, in full. Some books have a rating and no words at all; that is a rating
+I stand behind, not a missing review.
 
   stars   my rating, 0.5–5.
   pace    hours of audio per calendar day while I was reading it. High means I
@@ -75,11 +76,10 @@ def _verdict(review) -> list[str]:
     reasons live in the body. Quoting both the same way costs a character a line and
     makes it unambiguous where one book's words stop and the next book's begin.
     """
-    text = review.summary.strip()
-    body = review.body_markdown.strip()
-    if body:
-        text += "\n\n" + body
-    return [f"> {line}".rstrip() for line in text.splitlines()]
+    blocks = [b for b in (review.summary.strip(), review.body_markdown.strip()) if b]
+    if not blocks:
+        return []  # stars only. The rating line above already said everything there is.
+    return [f"> {line}".rstrip() for line in "\n\n".join(blocks).splitlines()]
 
 
 def _reviewed_lines(books) -> list[str]:
@@ -94,8 +94,10 @@ def _reviewed_lines(books) -> list[str]:
         elif book.is_abandoned:
             parts.append("dropped")
         lines.append(f"{' | '.join(parts)} | {_title(book)}")
-        lines.extend(_verdict(review))
-        lines.append("")  # a blank line, or a long review runs into the next title
+        verdict = _verdict(review)
+        if verdict:
+            lines.extend(verdict)
+            lines.append("")  # or a long review runs straight into the next title
     return lines
 
 

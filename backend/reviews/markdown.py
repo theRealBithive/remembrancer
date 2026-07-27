@@ -9,6 +9,9 @@ this is the control that still holds.
 
 from __future__ import annotations
 
+import html
+import re
+
 import nh3
 from markdown_it import MarkdownIt
 
@@ -43,3 +46,30 @@ def render_markdown(text: str) -> str:
         url_schemes=ALLOWED_SCHEMES,
         link_rel="nofollow noopener noreferrer",
     )
+
+
+def summarise_markdown(text: str, limit: int) -> str:
+    """Plain-text opening of a Markdown document, for a share card.
+
+    Goes through `render_markdown` first rather than regexing the source: the renderer
+    already knows what a link, a heading and a code fence are, and reusing it means the
+    excerpt can never contain syntax the page does not also strip.
+
+    Truncation prefers a sentence end, then a word end, and only cuts mid-word if the
+    text offers neither -- a card ending on half a word looks like a bug.
+    """
+    if not text or not text.strip():
+        return ""
+
+    plain = html.unescape(nh3.clean(render_markdown(text), tags=set(), attributes={}))
+    plain = re.sub(r"\s+", " ", plain).strip()
+    if len(plain) <= limit:
+        return plain
+
+    window = plain[: limit + 1]
+    sentence = max(window.rfind(". "), window.rfind("! "), window.rfind("? "))
+    if sentence >= limit // 2:
+        return window[: sentence + 1]
+
+    space = window.rfind(" ")
+    return (window[:space] if space > 0 else plain[:limit]).rstrip(" ,;:—-") + "…"

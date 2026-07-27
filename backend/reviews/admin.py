@@ -56,7 +56,10 @@ class ReviewAdmin(admin.ModelAdmin):
         (None, {"fields": ("book", "status", "public_link")}),
         ("Rating", {"fields": ("rating_overall", "rating_narration"),
                     "description": "Half-steps: 1–10 renders as 0.5–5 stars."}),
-        ("Review", {"fields": ("summary", "body_markdown")}),
+        ("Review", {"fields": ("summary", "body_markdown"),
+                    "description": "Both optional. A rating on its own is a complete "
+                                   "review; the share card falls back to the body, "
+                                   "then to the stars."}),
         ("Published state", {
             "classes": ("collapse",),
             "fields": ("slug", "published_at", "view_count",

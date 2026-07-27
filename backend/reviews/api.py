@@ -49,7 +49,11 @@ class BookOut(Schema):
 
 class ReviewListOut(Schema):
     slug: str
+    # `summary` is what was written and may be empty; `card_description` is what a
+    # share card should say, with the fallback already applied. The frontend renders
+    # the first and never has to reimplement the second.
     summary: str
+    card_description: str
     rating_overall: int
     rating_narration: int | None
     published_at: str | None
@@ -89,6 +93,7 @@ def _serialize(review: Review, *, full: bool) -> dict:
     data = {
         "slug": review.slug,
         "summary": review.summary,
+        "card_description": review.card_description,
         "rating_overall": review.rating_overall,
         "rating_narration": review.rating_narration,
         "published_at": review.published_at.isoformat() if review.published_at else None,

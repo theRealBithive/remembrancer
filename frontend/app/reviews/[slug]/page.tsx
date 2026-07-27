@@ -36,17 +36,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { book } = review;
   const title = `${book.title} — ${book.authors}`;
   const path = `/reviews/${review.slug}`;
+  // Never `review.summary`: it is optional, and a card with a blank description under
+  // the title is how a share looks when it is broken.
+  const description = review.card_description;
 
   // This block is the mechanism the Mastodon reach depends on: an instance building
   // a preview card reads exactly these tags out of the server-rendered HTML.
   return {
     title,
-    description: review.summary,
+    description,
     alternates: { canonical: path },
     openGraph: {
       type: "article",
       title,
-      description: review.summary,
+      description,
       url: path,
       publishedTime: review.published_at ?? undefined,
       images: book.cover_url ? [{ url: book.cover_url, alt: `Cover of ${book.title}` }] : [],
@@ -54,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     twitter: {
       card: book.cover_url ? "summary_large_image" : "summary",
       title,
-      description: review.summary,
+      description,
       images: book.cover_url ? [book.cover_url] : [],
     },
   };
@@ -149,9 +152,11 @@ export default async function ReviewPage({ params }: Props) {
 
       <hr className="mt-10 border-0 border-t border-rule" />
 
-      <p className="mt-10 max-w-[var(--measure)] font-display text-xl leading-snug sm:text-2xl">
-        {review.summary}
-      </p>
+      {review.summary && (
+        <p className="mt-10 max-w-[var(--measure)] font-display text-xl leading-snug sm:text-2xl">
+          {review.summary}
+        </p>
+      )}
 
       {review.body_html && (
         <div

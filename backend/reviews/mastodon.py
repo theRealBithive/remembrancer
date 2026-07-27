@@ -68,9 +68,12 @@ def compose_status(review, url: str, *, max_chars: int | None = None,
         return f"{url}\n\n{tags}"
 
     header = _truncate(header, min(len(header), max(remaining - 20, 0)) or remaining)
-    summary = _truncate(review.summary.strip(), max(remaining - len(header) - 1, 0))
+    # `card_description`, not `summary`: a rating-only review would otherwise post a
+    # bare title and a link. The fallback deliberately omits the title, so it does not
+    # repeat the header.
+    body = _truncate(review.card_description, max(remaining - len(header) - 1, 0))
 
-    parts = [p for p in (header, summary) if p]
+    parts = [p for p in (header, body) if p]
     return "\n\n".join([*parts, url, tags])
 
 

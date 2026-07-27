@@ -24,7 +24,7 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 3 | Sync scope | Mirror all book libraries + `/api/me` progress. Queue = finished **or abandoned**, and no review. |
 | 4 | Durability | Full local copy of metadata; covers downloaded to local media. ABS is a source, not a runtime dependency. |
 | 5 | Rating | Overall 1–5 in half-steps (required) + separate narration score (optional). Prose optional. |
-| 6 | Content | Markdown body, sanitized with `nh3`. `draft → published` + `published_at`. Hand-written `summary` (~300 chars). |
+| 6 | Content | Markdown body, sanitized with `nh3`. `draft → published` + `published_at`. Optional hand-written `summary` (~300 chars); a rating alone is a complete review. |
 | 7 | Authoring | **Django admin.** Next.js is strictly read-only — zero mutating endpoints outside Django session auth. |
 | 8 | Rendering | SSG/ISR with signed on-publish revalidation from Django. `generateMetadata()` emits OG tags. |
 | 9 | Mastodon | Manual admin action, separate from publish. Idempotent via stored `mastodon_status_id`. `#bookstodon`. |
@@ -86,7 +86,9 @@ Review
                                                    # frozen thereafter
   rating_overall     PositiveSmallIntegerField     # 1..10 half-steps, required
   rating_narration   PositiveSmallIntegerField, nullable
-  summary            CharField(300)                # og:description + Mastodon body
+  summary            CharField(300, blank)         # og:description + Mastodon body;
+                                                   # optional -- card_description falls
+                                                   # back to the body, then the rating
   body_markdown      TextField, blank
   status             draft | published
   published_at       DateTimeField, nullable
@@ -185,9 +187,9 @@ with transaction.atomic():
     review.save(update_fields=[...])
 ```
 
-Body: `title — authors · N/5`, then `summary`, then the canonical URL and the
+Body: `title — authors · N/5`, then `card_description`, then the canonical URL and the
 hashtags, composed against a 500-char budget where links count as 23 regardless of
-length. When it does not fit, the summary is trimmed first and the header second: the
+length. When it does not fit, the description is trimmed first and the header second: the
 link is the entire reason for posting and the hashtags are what give it reach, so
 neither is ever sacrificed. Cover comes from the OG card — no media upload.
 

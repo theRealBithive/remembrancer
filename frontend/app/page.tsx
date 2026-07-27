@@ -70,9 +70,11 @@ export default async function IndexPage() {
                   </div>
                 </div>
 
-                <p className="mt-3 max-w-[52ch] text-[0.98rem] leading-relaxed text-muted">
-                  {review.summary}
-                </p>
+                {review.summary && (
+                  <p className="mt-3 max-w-[52ch] text-[0.98rem] leading-relaxed text-muted">
+                    {review.summary}
+                  </p>
+                )}
 
                 <ListeningLine
                   seconds={book.duration_seconds}

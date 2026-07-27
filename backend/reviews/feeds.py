@@ -35,7 +35,9 @@ class ReviewsFeed(Feed):
         return f"{item.book.title} — {item.book.primary_author} ({stars})"
 
     def item_description(self, item):
-        return item.body_html or item.summary
+        # Never empty: a rating-only review still has to be a readable row in a reader,
+        # and `card_description` states the stars when there are no words.
+        return item.body_html or item.summary or item.card_description
 
     def item_link(self, item):
         return f"{settings.SITE_URL}{item.get_absolute_path()}"

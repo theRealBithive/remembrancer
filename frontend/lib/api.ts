@@ -28,7 +28,11 @@ export type Book = {
 
 export type ReviewSummary = {
   slug: string;
+  // May be empty — a rating on its own is a complete review. `card_description` is
+  // the same thing with Django's fallback already applied (body excerpt, then the
+  // rating stated plainly); use it for share cards, never for the page body.
   summary: string;
+  card_description: string;
   rating_overall: number;
   rating_narration: number | null;
   published_at: string | null;

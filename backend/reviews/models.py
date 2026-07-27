@@ -16,10 +16,14 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from catalog.models import Book
-from reviews.markdown import render_markdown
+from reviews.markdown import render_markdown, summarise_markdown
 
 # Ratings are stored as half-steps: 1..10 == 0.5..5.0 stars.
 RATING_MIN, RATING_MAX = 1, 10
+
+# Roughly what a Mastodon or Slack card shows before it clips. Longer costs nothing
+# but is never read.
+CARD_DESCRIPTION_CHARS = 200
 
 
 class Review(models.Model):
@@ -52,8 +56,10 @@ class Review(models.Model):
 
     summary = models.CharField(
         max_length=300,
-        help_text="Hand-written. Becomes og:description and, in P2, the Mastodon post — "
-        "so it should read as a sentence, not a truncated first paragraph.",
+        blank=True,
+        help_text="Optional. Becomes og:description and the Mastodon post, so it should "
+        "read as a sentence rather than a truncated first paragraph. Leave it empty and "
+        "the card falls back to the body, then to the rating on its own.",
     )
     body_markdown = models.TextField(blank=True, help_text="Markdown. Optional.")
 
@@ -124,6 +130,34 @@ class Review(models.Model):
     @property
     def body_html(self) -> str:
         return render_markdown(self.body_markdown)
+
+    @property
+    def card_description(self) -> str:
+        """What a share card says when there is no hand-written summary.
+
+        A rating on its own is a complete review -- sometimes the stars are the whole
+        verdict -- but a card with a blank body under the title reads as broken, and
+        that card is how the site reaches anyone at all. So: the summary if it exists,
+        else the opening of the body, else the rating stated plainly.
+
+        Computed here rather than in the page and again in the toot, so the two can
+        never drift and both are reachable from a test.
+        """
+        if self.summary.strip():
+            return self.summary.strip()
+
+        excerpt = summarise_markdown(self.body_markdown, CARD_DESCRIPTION_CHARS)
+        if excerpt:
+            return excerpt
+
+        # No title here on purpose. Everywhere this lands -- og:description under
+        # og:title, the toot under its header -- the title is already on the line
+        # above, and a card that says the same thing twice reads as a template that
+        # went wrong.
+        parts = [f"{self.stars_overall:g} out of 5 stars"]
+        if self.rating_narration:
+            parts.append(f"narration {self.stars_narration:g}")
+        return ", ".join(parts)
 
 
 class ReviewViewDay(models.Model):

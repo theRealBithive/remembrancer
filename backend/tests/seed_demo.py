@@ -71,6 +71,22 @@ DEMO = [
         "body": "Worth it for the text. The full-cast interludes break the spell more "
                 "often than they earn it.",
     },
+    {
+        # Stars and nothing else. Here so the layout is exercised by the case that has
+        # no lede paragraph to fill the space under the rating.
+        "abs_item_id": "demo-echo",
+        "title": "Echopraxia",
+        "authors": "Peter Watts",
+        "narrators": "Adam J. Rough",
+        "published_year": 2014,
+        "duration_seconds": 12 * 3600 + 39 * 60,
+        "colour": (58, 74, 92),
+        "days": 9.0,
+        "rating_overall": 7,
+        "rating_narration": 8,
+        "summary": "",
+        "body": "",
+    },
 ]
 
 
