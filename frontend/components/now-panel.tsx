@@ -27,12 +27,18 @@ function Heading({ children }: { children: React.ReactNode }) {
  * What is on right now. Not a link: there is no review page yet, and a heading that
  * looks clickable and isn't is worse than plain text.
  */
+/**
+ * Both blocks were drawn for a 208px rail, so away from that rail they need a width
+ * of their own -- stretched across a phone the year bar becomes twelve fenceposts.
+ */
+const BLOCK = "max-w-64 sm:flex-1 xl:max-w-none";
+
 function NowListening({ book }: { book: NonNullable<Now["listening"]> }) {
   const percent = Math.round(book.progress * 100);
   const length = runtime(book.duration_seconds);
 
   return (
-    <section>
+    <section className={BLOCK}>
       <Heading>Now listening</Heading>
 
       <div className="mt-3 flex gap-3">
@@ -77,7 +83,7 @@ function YearBar({ year }: { year: Now["year"] }) {
   const scale = Math.max(...months, MIN_SCALE);
 
   return (
-    <section>
+    <section className={BLOCK}>
       <Heading>Books this year</Heading>
 
       <div
@@ -146,7 +152,12 @@ export function NowPanel({ now }: { now: Now | null }) {
       // The width shrinks at `xl` so the gap to the column can grow: at exactly 1280px
       // the gutter is 256px, and 208 + 40 was already using all of it. Past `2xl`
       // there is room for both.
-      className="mb-12 flex w-52 max-w-full flex-col gap-8 xl:absolute xl:top-12 xl:right-full xl:mr-16 xl:mb-0 xl:w-44 2xl:mr-28 2xl:w-52"
+      // Three layouts. In the rail it is a 208px column. Off the rail there is a whole
+      // page width going spare, so the two blocks sit side by side rather than in a
+      // 208px strip with the rest of the row empty -- which is what a phone in
+      // landscape and every tablet were getting. Below `sm` there is genuinely no room
+      // for two, so they stack.
+      className="mb-12 flex w-full flex-col gap-8 sm:flex-row sm:gap-12 xl:absolute xl:top-12 xl:right-full xl:mr-16 xl:mb-0 xl:w-44 xl:flex-col xl:gap-8 2xl:mr-28 2xl:w-52"
     >
       {now.listening && <NowListening book={now.listening} />}
       {now.year.total > 0 && <YearBar year={now.year} />}
