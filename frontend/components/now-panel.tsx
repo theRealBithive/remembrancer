@@ -138,13 +138,15 @@ export function NowPanel({ now }: { now: Now | null }) {
     // e2e test that would break on a Chromium bump for reasons pointing nowhere.
     <aside
       aria-label="Now"
-      // The negative top lifts it out of `main` and into the header's band, so
-      // NOW LISTENING sits on the same line as the masthead rather than starting a
-      // hand's width below it. -84px is the distance from the top of `main` up to the
-      // caption opposite the title (header pt-16 + the title's line box + the rule's
-      // margin + pb-8), less the 8px the panel would otherwise sit at. It overflows
-      // upward into the left gutter, which is empty at every width where it applies.
-      className="mb-12 flex w-52 max-w-full flex-col gap-8 xl:absolute xl:top-[-76px] xl:right-full xl:mr-10 xl:mb-0"
+      // `top-12` puts NOW LISTENING level with the first review's title and cover.
+      // Level with the masthead was the obvious choice and the wrong one: it left the
+      // progress rule a few pixels off the header's divider, and a near-miss between
+      // two hairlines reads as a mistake in a way that no alignment at all does.
+      //
+      // The width shrinks at `xl` so the gap to the column can grow: at exactly 1280px
+      // the gutter is 256px, and 208 + 40 was already using all of it. Past `2xl`
+      // there is room for both.
+      className="mb-12 flex w-52 max-w-full flex-col gap-8 xl:absolute xl:top-12 xl:right-full xl:mr-16 xl:mb-0 xl:w-44 2xl:mr-28 2xl:w-52"
     >
       {now.listening && <NowListening book={now.listening} />}
       {now.year.total > 0 && <YearBar year={now.year} />}
