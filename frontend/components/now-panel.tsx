@@ -138,7 +138,13 @@ export function NowPanel({ now }: { now: Now | null }) {
     // e2e test that would break on a Chromium bump for reasons pointing nowhere.
     <aside
       aria-label="Now"
-      className="mb-12 flex w-52 max-w-full flex-col gap-8 xl:absolute xl:top-2 xl:right-full xl:mr-10 xl:mb-0"
+      // The negative top lifts it out of `main` and into the header's band, so
+      // NOW LISTENING sits on the same line as the masthead rather than starting a
+      // hand's width below it. -84px is the distance from the top of `main` up to the
+      // caption opposite the title (header pt-16 + the title's line box + the rule's
+      // margin + pb-8), less the 8px the panel would otherwise sit at. It overflows
+      // upward into the left gutter, which is empty at every width where it applies.
+      className="mb-12 flex w-52 max-w-full flex-col gap-8 xl:absolute xl:top-[-76px] xl:right-full xl:mr-10 xl:mb-0"
     >
       {now.listening && <NowListening book={now.listening} />}
       {now.year.total > 0 && <YearBar year={now.year} />}
