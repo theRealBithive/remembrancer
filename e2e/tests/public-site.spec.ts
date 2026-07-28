@@ -14,6 +14,29 @@ test("index lists reviews with title, rating and runtime", async ({ page }) => {
   await expect(first.getByText(/\d+h( \d+m)?/)).toBeVisible();
 });
 
+test("the homepage says what is on now and how the year is going", async ({ page }) => {
+  await page.goto("/");
+
+  const panel = page.getByRole("complementary");
+  // One book, never a list -- the API field is singular and this is what enforces it
+  // at the other end.
+  await expect(panel.getByRole("heading", { name: "Now listening" })).toBeVisible();
+  await expect(panel.getByText(/\d+% in/)).toBeVisible();
+
+  await expect(panel.getByRole("heading", { name: "Books this year" })).toBeVisible();
+  await expect(panel.getByText(new RegExp(`\\d+ in ${new Date().getFullYear()}`))).toBeVisible();
+});
+
+test("the now-listening block publishes no dates", async ({ request }) => {
+  // Decision 21: the pace is a judgement, the calendar is nobody's business. The
+  // endpoint is the only place an in-progress book's timestamps could leak.
+  const payload = await (await request.get("/api/now")).json();
+
+  expect(Object.keys(payload.listening ?? {}).sort()).toEqual([
+    "authors", "cover_thumb_url", "duration_seconds", "narrators", "progress", "title",
+  ]);
+});
+
 test("review page renders content and both ratings", async ({ page }) => {
   await page.goto(`/reviews/${SLUG}`);
 

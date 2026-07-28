@@ -6,7 +6,7 @@ Not imported by the test suite -- pytest builds its own fixtures.
 """
 
 import io
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.utils import timezone
 from PIL import Image, ImageDraw
@@ -87,6 +87,19 @@ DEMO = [
         "summary": "",
         "body": "",
     },
+    {
+        # Unfinished and unreviewed, which is what "now listening" needs. Without one
+        # of these the homepage panel has nothing to draw and any assertion on it
+        # passes by rendering nothing.
+        "abs_item_id": "demo-anathem",
+        "title": "Anathem",
+        "authors": "Neal Stephenson",
+        "narrators": "William Dufris",
+        "published_year": 2008,
+        "duration_seconds": 32 * 3600 + 27 * 60,
+        "colour": (86, 96, 84),
+        "in_progress": 0.41,
+    },
 ]
 
 
@@ -100,27 +113,62 @@ def cover(colour, title):
     return buf.getvalue()
 
 
+def finished_in_month(month: int):
+    """Noon on the 12th, in the site's timezone.
+
+    The finished books are spread across the months elapsed so far this year rather
+    than pinned to fixed dates, so the year bar has a shape whenever the seed is run
+    -- fixed offsets would land in the previous year every January.
+    """
+    tz = timezone.get_current_timezone()
+    return timezone.make_aware(datetime(timezone.localdate().year, month, 12, 12), tz)
+
+
+finished = [entry for entry in DEMO if "in_progress" not in entry]
+elapsed_months = timezone.localdate().month
+
 for entry in DEMO:
     data = dict(entry)
     colour = data.pop("colour")
-    days = data.pop("days")
-    rating_overall = data.pop("rating_overall")
-    rating_narration = data.pop("rating_narration")
-    summary = data.pop("summary")
-    body = data.pop("body")
+    in_progress = data.pop("in_progress", None)
+
+    if in_progress is None:
+        days = data.pop("days")
+        # Spread over January..this month, oldest entry first.
+        position = finished.index(entry)
+        month = 1 + round(position * (elapsed_months - 1) / max(len(finished) - 1, 1))
+        listening = {
+            "is_finished": True,
+            "finished_at": (finished_at := finished_in_month(month)),
+            "started_at": finished_at - timedelta(days=days),
+            "last_played_at": finished_at,
+            "progress": 1.0,
+            "seconds_listened": data["duration_seconds"],
+        }
+        review_fields = {
+            "rating_overall": data.pop("rating_overall"),
+            "rating_narration": data.pop("rating_narration"),
+            "summary": data.pop("summary"),
+            "body_markdown": data.pop("body"),
+            "status": Review.Status.PUBLISHED,
+        }
+    else:
+        started = timezone.now() - timedelta(days=6)
+        listening = {
+            "is_finished": False,
+            "finished_at": None,
+            "started_at": started,
+            "last_played_at": timezone.now() - timedelta(hours=3),
+            "progress": in_progress,
+            "seconds_listened": int(data["duration_seconds"] * in_progress),
+        }
+        review_fields = None
 
     book, _ = Book.objects.update_or_create(
         abs_item_id=data["abs_item_id"],
         defaults={
             **data,
-            "is_finished": True,
-            # A listening record, so the public pace line has something to render and
-            # the e2e suite actually exercises it.
-            "finished_at": (finished := timezone.now() - timedelta(days=5)),
-            "started_at": finished - timedelta(days=days),
-            "last_played_at": finished,
-            "progress": 1.0,
-            "seconds_listened": data["duration_seconds"],
+            **listening,
             "match_key": normalize_match_key(data["title"], data["authors"]),
         },
     )
@@ -129,14 +177,9 @@ for entry in DEMO:
     store_cover(book, cover(colour, data["title"]))
     book.save()
 
-    review, _ = Review.objects.update_or_create(
-        book=book,
-        defaults={
-            "rating_overall": rating_overall,
-            "rating_narration": rating_narration,
-            "summary": summary,
-            "body_markdown": body,
-            "status": Review.Status.PUBLISHED,
-        },
-    )
+    if review_fields is None:
+        print(f"(no review): {book.title} — {book.progress:.0%} in")
+        continue
+
+    review, _ = Review.objects.update_or_create(book=book, defaults=review_fields)
     print(f"{review.slug}: {book.title}")

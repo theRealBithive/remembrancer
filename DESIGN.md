@@ -29,7 +29,7 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 8 | Rendering | SSG/ISR with signed on-publish revalidation from Django. `generateMetadata()` emits OG tags. |
 | 9 | Mastodon | Manual admin action, separate from publish. Idempotent via stored `mastodon_status_id`. `#bookstodon`. |
 | 10 | View counts | Client JS beacon → Django. Dedup on daily-salted hash, cache-only. Daily buckets. |
-| 11 | Site surface | Index, review detail, RSS/Atom, `/legal`. No facets until the corpus justifies them. |
+| 11 | Site surface | Index, review detail, RSS/Atom, `/legal`. No facets until the corpus justifies them. Index also carries the present tense — see 23. |
 | 12 | Deployment | One VPS, docker-compose, single reverse proxy, **same origin**. |
 | 13 | Runtime | Postgres + Redis + **django-q2** (not Celery). |
 | 14 | Security | Env-var secrets, django-axes, obscured admin path, security headers, rate-limited beacon. |
@@ -39,8 +39,9 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 18 | Identity | "Remembrancer". Editorial/typographic: serif body, generous measure, covers as the only colour. |
 | 19 | Re-reviews | **One review per book, ever** — `OneToOneField`. Edit in place; slug and view count persist. Deliberate, not a schema artifact. |
 | 20 | Legal | `/legal` route in P1 (Impressum §5 DDG + privacy notice), footer-linked sitewide. Text authored by the operator. |
-| 21 | Listening record | Capture `startedAt`/`lastUpdate`/`progress`. Pace (h of audio per calendar day) is the rating hint; abandonment is a reviewable verdict. Pace is public, dates are not. |
+| 21 | Listening record | Capture `startedAt`/`lastUpdate`/`progress`. Pace (h of audio per calendar day) is the rating hint; abandonment is a reviewable verdict. Pace is public, dates are not — softened by 23, which publishes a month. |
 | 22 | Distribution | Images published to GHCR by CI. Nothing domain-specific is baked in, so one image serves any deployment. |
+| 23 | Present tense | Homepage shows the one book in progress and a twelve-month bar of books finished this year. Publishes an **unreviewed** book and a monthly calendar; `Book.hide_from_public` is the control. |
 
 ---
 
@@ -77,6 +78,9 @@ Book
   progress           FloatField                    # 0..1
   seconds_listened   PositiveIntegerField, nullable
   is_orphaned        BooleanField                  # vanished upstream; review survives
+  hide_from_public   BooleanField                  # keeps a title out of "now
+                                                   # listening"; the one authored field
+                                                   # here, so absent from MIRRORED_FIELDS
   synced_at          DateTimeField
 
 Review
@@ -138,6 +142,35 @@ on each row.
 **Pace is published; dates are not.** "Over 3 days, 5.4 h/day" is a judgement and reads
 as editorial. Start and finish dates would publish a listening calendar, which is
 nobody's business.
+
+### The present tense on the homepage (Decision 23)
+
+Between reviews the site showed no sign of life, which is odd for something calling
+itself a listening record. Two blocks in the whitespace beside the index fix that:
+the book currently in progress, and twelve rules — one per month — for what was
+finished this year.
+
+Both cross a line the rest of the site holds. Everywhere else a book becomes public
+only when a review is written *and* published; now-listening puts an unreviewed book
+up the night it is started. And a month is a calendar, which the paragraph above
+refuses. The concessions are bounded deliberately:
+
+- `progress` is published, timestamps are not. It is the in-flight analogue of pace —
+  a judgement, not a diary. `/api/now` carries no `started_at`, `last_played_at` or
+  `finished_at`, and a test asserts the exact key set.
+- A month is coarse enough to read as a rhythm. A finishing *date* would not be.
+- `Book.hide_from_public` keeps a title off the page, ticked from the changelist row.
+  It hides the title, not the arithmetic: a hidden book still counts toward the year
+  total, because a number reveals nothing and a count that quietly disagreed with the
+  library would be worse than no count.
+- "Currently" means ABS's `lastUpdate` within 30 days, above the same five-minute floor
+  `is_abandoned` uses. Well short of the 90 days that mark a book abandoned — a book
+  silent since last month is not what you are listening to.
+
+`hide_from_public` is the only authored field in `catalog`, so it is deliberately
+absent from `sync.MIRRORED_FIELDS`; the nightly mirror would otherwise overwrite it.
+It survives an ABS remove/re-add for the same reason a review does — `Book.match()`
+re-adopts the existing row.
 
 ---
 

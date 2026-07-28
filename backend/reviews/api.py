@@ -12,6 +12,7 @@ from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from ninja.throttling import SimpleRateThrottle
 
+from catalog.now import current_book, year_progress
 from reviews.counting import record_view, visitor_key
 from reviews.models import Review
 
@@ -71,6 +72,39 @@ class ViewOut(Schema):
     count: int
 
 
+class NowListeningOut(Schema):
+    """The book in progress. Note what is absent.
+
+    No `started_at`, no `last_played_at`, no ABS id, no description. `progress` is the
+    in-flight analogue of the pace published on a finished book -- a judgement rather
+    than a calendar -- and Decision 21 refuses the timestamps that produced it.
+    """
+
+    title: str
+    authors: str
+    narrators: str
+    cover_thumb_url: str | None
+    duration_seconds: int | None
+    progress: float
+
+
+class YearProgressOut(Schema):
+    year: int
+    # 1..12, the month in progress on the server. Sent rather than inferred: the page
+    # is cached, so the browser's clock is not the one that bucketed the counts.
+    month: int
+    total: int
+    # Always twelve, zero-filled, January first.
+    months: list[int]
+
+
+class NowOut(Schema):
+    # Singular and nullable on purpose: one book or none, and the schema is what makes
+    # a list unrepresentable rather than a convention someone has to remember.
+    listening: NowListeningOut | None
+    year: YearProgressOut
+
+
 def _book(review: Review) -> dict:
     b = review.book
     return {
@@ -124,6 +158,28 @@ def get_review(request, slug: str):
         # Drafts are indistinguishable from nonexistent slugs from the outside.
         raise HttpError(404, "Not found")
     return _serialize(review, full=True)
+
+
+@api.get("/now", response=NowOut, url_name="now")
+def get_now(request):
+    """What is being listened to, and the shape of the year so far.
+
+    Unthrottled like the review endpoints: Next fetches this once per ISR window and
+    serves the result from the static cache, so public traffic never arrives here.
+    """
+    book = current_book()
+    return {
+        "listening": book
+        and {
+            "title": book.title,
+            "authors": book.authors,
+            "narrators": book.narrators,
+            "cover_thumb_url": absolute(book.cover_thumb.url if book.cover_thumb else None),
+            "duration_seconds": book.duration_seconds,
+            "progress": book.progress,
+        },
+        "year": year_progress(),
+    }
 
 
 class VisitorThrottle(SimpleRateThrottle):

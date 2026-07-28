@@ -56,11 +56,20 @@ class ReviewedFilter(admin.SimpleListFilter):
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    """Read-only: this table is a mirror, and the next sync would discard any edit."""
+    """A mirror, so effectively read-only: the next sync would discard any edit.
+
+    `hide_from_public` is the single exception, and only because `sync.MIRRORED_FIELDS`
+    deliberately omits it.
+    """
 
     list_display = ("thumb", "title", "authors", "narrators", "listening", "write_review",
-                    "is_orphaned", "synced_at")
+                    "hide_from_public", "is_orphaned", "synced_at")
     list_display_links = ("title",)
+    # The one editable column. Hiding the book you are listening to has to be a tick on
+    # the row you are already looking at -- a trip into a change form full of read-only
+    # fields to reach a single checkbox is the kind of friction that means it never
+    # happens in time.
+    list_editable = ("hide_from_public",)
     list_filter = (ReviewedFilter, "is_finished", "is_orphaned", "series")
     search_fields = ("title", "subtitle", "authors", "narrators", "asin", "isbn")
     ordering = ("-finished_at", "title")
@@ -104,7 +113,8 @@ class BookAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related("review")
 
     def get_readonly_fields(self, request, obj=None):
-        return [f.name for f in Book._meta.fields]
+        # Everything except the one field the sync does not own.
+        return [f.name for f in Book._meta.fields if f.name != "hide_from_public"]
 
     def has_add_permission(self, request):
         return False

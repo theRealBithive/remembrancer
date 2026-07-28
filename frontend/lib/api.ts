@@ -89,3 +89,39 @@ export async function listReviews(): Promise<ReviewSummary[]> {
 export async function getReview(slug: string): Promise<Review | null> {
   return get<Review>(`/api/reviews/${encodeURIComponent(slug)}`);
 }
+
+/** The book in progress. One or none — never a list. */
+export type NowListening = {
+  title: string;
+  authors: string;
+  narrators: string;
+  cover_thumb_url: string | null;
+  duration_seconds: number | null;
+  /** 0..1. The in-flight analogue of pace; no dates are published. */
+  progress: number;
+};
+
+export type YearProgress = {
+  year: number;
+  /** 1..12, from Django's clock — the page is cached, so the browser's is not it. */
+  month: number;
+  total: number;
+  /** Always twelve, zero-filled, January first. */
+  months: number[];
+};
+
+export type Now = {
+  listening: NowListening | null;
+  year: YearProgress;
+};
+
+export async function getNow(): Promise<Now | null> {
+  try {
+    return await get<Now>("/api/now");
+  } catch (error) {
+    // Same escape hatch as listReviews: `docker build` cannot reach `web:8000`, and an
+    // unguarded throw here fails the image build. At runtime it must still surface.
+    if (IS_BUILD) return null;
+    throw error;
+  }
+}

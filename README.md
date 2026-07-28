@@ -7,7 +7,7 @@ Django mirrors the library nightly and surfaces a queue of books awaiting a verd
 finished, or abandoned early enough that bailing was itself the review. You write in the Django admin. Next.js serves statically-generated public
 pages with OpenGraph tags, so a link posted to Mastodon renders a proper card.
 
-`DESIGN.md` records the 22 decisions behind the architecture and why each was made.
+`DESIGN.md` records the 23 decisions behind the architecture and why each was made.
 
 **Status: complete through P3** — read, Mastodon syndication, and view counting.
 
@@ -59,6 +59,25 @@ whatever URL the builder happened to have.
   placeholder secrets, a missing `REVALIDATE_SECRET`, a non-HTTPS `SITE_URL`, or
   SQLite. It is skipped when `DJANGO_DEBUG` is true, so a container that starts in
   development says nothing about production.
+
+## What the homepage says about right now
+
+Beside the review list — in the left margin above 1280px, stacked above it below —
+sit two things the nightly sync keeps current: the one book you are listening to, and
+twelve rules for the books you finished in each month of this year.
+
+"Currently" is whatever Audiobookshelf played most recently, provided it is unfinished,
+at least five minutes in, and was touched within the last 30 days. One book, never a
+list. Nothing qualifying means the block simply isn't there.
+
+This is the only place an **unreviewed** book appears publicly, so there is a control:
+admin → *Books* → tick **hide from public** on the row. The sync never touches that box.
+It hides the title, not the count — a hidden book still counts toward the year total,
+because a number gives nothing away and a total that disagreed with your library would
+be worse than none.
+
+No dates are published, in keeping with the rest of the site: `/api/now` carries
+`progress` and never `started_at`, `last_played_at` or `finished_at`.
 
 ## Posting to Mastodon
 

@@ -96,6 +96,17 @@ class Book(models.Model):
         db_index=True,
         help_text="Absent from the last sync. Never deleted -- a review may depend on it.",
     )
+
+    # The one authored value in an otherwise disposable mirror, which is why it is
+    # absent from sync.MIRRORED_FIELDS. It hides the *title*: a hidden book still
+    # counts toward the year total, because a number reveals nothing and a count that
+    # silently disagreed with the library would be worse than no count.
+    hide_from_public = models.BooleanField(
+        default=False,
+        help_text="Keep this book out of “now listening” on the public page. "
+        "The sync never touches this box.",
+    )
+
     synced_at = models.DateTimeField(auto_now=True)
 
     class Meta:

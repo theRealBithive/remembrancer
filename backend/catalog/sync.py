@@ -324,7 +324,12 @@ def sync(client: AbsClient | None = None) -> SyncReport:
 
 
 def _revalidate_affected(books: list[Book]) -> list[str]:
-    """Refresh any published page whose underlying book metadata moved."""
+    """Refresh any published page whose underlying book metadata moved.
+
+    The index goes in whenever anything live changed, not only when a *reviewed* book
+    did: it also carries "now listening" and the count for the year, and both move on
+    books that will never have a review. At most one extra call per nightly run.
+    """
     from reviews.models import Review  # local import: avoids a catalog<->reviews cycle
 
     slugs = list(
@@ -332,7 +337,7 @@ def _revalidate_affected(books: list[Book]) -> list[str]:
             book__in=books, status=Review.Status.PUBLISHED, slug__isnull=False
         ).values_list("slug", flat=True)
     )
-    if not slugs:
+    if not books:
         return []
     paths = ["/"] + [f"/reviews/{slug}" for slug in slugs]
     revalidate(paths)
