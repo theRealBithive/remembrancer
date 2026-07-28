@@ -32,8 +32,12 @@ function Heading({ children }: { children: React.ReactNode }) {
  * That is what lands both rules on one line without either block being told a pixel
  * offset: a two-line book title grows both blocks together instead of knocking the
  * year bar out of alignment.
+ *
+ * A fixed width rather than `flex-1`, so the pair can be centred as a pair. With
+ * `flex-1` each box would grow to half the row and centre inside its own half, which
+ * pushes the two apart rather than bringing them together.
  */
-const BLOCK = "flex max-w-64 flex-col sm:flex-1 xl:max-w-none";
+const BLOCK = "mx-auto flex w-full max-w-64 flex-col sm:w-64 xl:w-full xl:max-w-none";
 
 /**
  * What is on right now. Not a link: there is no review page yet, and a heading that
@@ -174,7 +178,7 @@ export function NowPanel({ now }: { now: Now | null }) {
       // 208px strip with the rest of the row empty -- which is what a phone in
       // landscape and every tablet were getting. Below `sm` there is genuinely no room
       // for two, so they stack.
-      className="mb-12 flex w-full flex-col gap-8 sm:flex-row sm:gap-12 xl:absolute xl:top-12 xl:right-full xl:mr-16 xl:mb-0 xl:w-44 xl:flex-col xl:gap-8 2xl:mr-28 2xl:w-52"
+      className="mb-12 flex w-full flex-col gap-8 sm:flex-row sm:justify-center sm:gap-12 xl:absolute xl:top-12 xl:right-full xl:mr-16 xl:mb-0 xl:w-44 xl:flex-col xl:justify-start xl:gap-8 2xl:mr-28 2xl:w-52"
     >
       {now.listening && <NowListening book={now.listening} />}
       {now.year.total > 0 && <YearBar year={now.year} />}
