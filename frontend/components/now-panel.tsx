@@ -24,15 +24,21 @@ function Heading({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Both blocks were drawn for a 208px rail, so away from that rail they need a width
+ * of their own -- stretched across a phone the year bar becomes twelve fenceposts.
+ *
+ * `flex-col` matters as much as the width. Side by side the two sections stretch to a
+ * common height, and each one puts a `flex-1` region between its heading and its rule.
+ * That is what lands both rules on one line without either block being told a pixel
+ * offset: a two-line book title grows both blocks together instead of knocking the
+ * year bar out of alignment.
+ */
+const BLOCK = "flex max-w-64 flex-col sm:flex-1 xl:max-w-none";
+
+/**
  * What is on right now. Not a link: there is no review page yet, and a heading that
  * looks clickable and isn't is worse than plain text.
  */
-/**
- * Both blocks were drawn for a 208px rail, so away from that rail they need a width
- * of their own -- stretched across a phone the year bar becomes twelve fenceposts.
- */
-const BLOCK = "max-w-64 sm:flex-1 xl:max-w-none";
-
 function NowListening({ book }: { book: NonNullable<Now["listening"]> }) {
   const percent = Math.round(book.progress * 100);
   const length = runtime(book.duration_seconds);
@@ -41,7 +47,11 @@ function NowListening({ book }: { book: NonNullable<Now["listening"]> }) {
     <section className={BLOCK}>
       <Heading>Now listening</Heading>
 
-      <div className="mt-3 flex gap-3">
+      {/* `pb-3` keeps the author clear of the rule. It lives inside the flex region on
+          purpose: both regions have a zero flex basis, so they end up the same height
+          whatever is in them, and the padding buys breathing room here without lifting
+          the year bars off their own rule. */}
+      <div className="mt-3 flex flex-1 gap-3 pb-3">
         {book.cover_thumb_url && (
           // eslint-disable-next-line @next/next/no-img-element -- Django emits both
           // sizes at sync time, so the optimizer has nothing to add.
@@ -63,7 +73,7 @@ function NowListening({ book }: { book: NonNullable<Now["listening"]> }) {
       {/* The same idiom as ListeningLine: a hairline that carries a quantity. Here the
           quantity is how far in, so the rule is drawn twice -- the whole book in the
           rule colour, the part heard in ink. */}
-      <div className="mt-3 h-px w-full bg-rule" aria-hidden="true">
+      <div className="h-px w-full bg-rule" aria-hidden="true">
         <div className="h-px bg-ink" style={{ width: `${percent}%` }} />
       </div>
       <p className="mt-2 font-mono text-[0.65rem] tracking-[0.08em] text-muted">
@@ -86,9 +96,12 @@ function YearBar({ year }: { year: Now["year"] }) {
     <section className={BLOCK}>
       <Heading>Books this year</Heading>
 
+      {/* `flex-1` and `items-end`: the bars stand on the rule below, at whatever height
+          the block has been stretched to. The min-height is what stops them collapsing
+          when this is the shorter of the two blocks. */}
       <div
-        className="mt-3 flex w-full items-end gap-[3px]"
-        style={{ height: BAR_HEIGHT }}
+        className="mt-3 flex w-full flex-1 items-end gap-[3px]"
+        style={{ minHeight: BAR_HEIGHT }}
         aria-hidden="true"
       >
         {months.map((count, index) => (
@@ -111,6 +124,10 @@ function YearBar({ year }: { year: Now["year"] }) {
           />
         ))}
       </div>
+
+      {/* The line the bars stand on, and the same line the progress rule opposite sits
+          on. Unfilled: there is nothing to be a fraction of here. */}
+      <div className="h-px w-full bg-rule" aria-hidden="true" />
 
       <p className="mt-2 font-mono text-[0.65rem] tracking-[0.08em] text-muted">
         {total} in {year.year}
