@@ -57,6 +57,9 @@ class ReviewListOut(Schema):
     card_description: str
     rating_overall: int
     rating_narration: int | None
+    # A separate axis from the rating, not a sixth star. Rare by construction, so the
+    # page renders it only when true and says nothing at all when false.
+    had_orm: bool
     published_at: str | None
     book: BookOut
 
@@ -130,6 +133,7 @@ def _serialize(review: Review, *, full: bool) -> dict:
         "card_description": review.card_description,
         "rating_overall": review.rating_overall,
         "rating_narration": review.rating_narration,
+        "had_orm": review.had_orm,
         "published_at": review.published_at.isoformat() if review.published_at else None,
         "book": _book(review),
     }

@@ -35,6 +35,11 @@ export type ReviewSummary = {
   card_description: string;
   rating_overall: number;
   rating_narration: number | null;
+  /**
+   * A separate axis from the rating, and rare. Render it only when true — the mark
+   * means "this did something to me"; its absence is not a verdict of any kind.
+   */
+  had_orm: boolean;
   published_at: string | null;
   book: Book;
 };

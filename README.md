@@ -7,7 +7,7 @@ Django mirrors the library nightly and surfaces a queue of books awaiting a verd
 finished, or abandoned early enough that bailing was itself the review. You write in the Django admin. Next.js serves statically-generated public
 pages with OpenGraph tags, so a link posted to Mastodon renders a proper card.
 
-`DESIGN.md` records the 23 decisions behind the architecture and why each was made.
+`DESIGN.md` records the 24 decisions behind the architecture and why each was made.
 
 **Status: complete through P3** — read, Mastodon syndication, and view counting.
 
@@ -59,6 +59,24 @@ whatever URL the builder happened to have.
   placeholder secrets, a missing `REVALIDATE_SECRET`, a non-HTTPS `SITE_URL`, or
   SQLite. It is skipped when `DJANGO_DEBUG` is true, so a container that starts in
   development says nothing about production.
+
+## Orm
+
+A checkbox on the review form, next to the ratings. Borrowed from Walter Moers, where
+the Orm is the force said to run through a writer when the work is more than well made.
+
+It is a second axis, not a sixth star. Both ratings measure craft; this one says the
+book did something to you, and the two come apart — a flawless novel can leave nothing
+behind. Tick it rarely. If every 5/5 ends up marked, it is measuring nothing and should
+be deleted.
+
+Unticked means "good, and no more than good", never a complaint, and nothing is
+rendered for it. Where it *is* ticked the site prints the word — never a glyph, which a
+stranger cannot look up — and footnotes it at the bottom of the page. The LLM export
+explains it at length, because a model reading the file cold would otherwise take
+"ORM" for the database kind.
+
+Left out of the Mastodon post deliberately: a toot carries no footnote with it.
 
 ## What the homepage says about right now
 

@@ -54,6 +54,20 @@ class Review(models.Model):
         help_text="Optional. A great book can have a poor reader.",
     )
 
+    # Orm, from Walter Moers' Zamonien novels: the force that runs through a writer
+    # when the work is more than well made. A separate axis from the rating on purpose
+    # -- craft and effect diverge, and the site had no way to say the second thing.
+    #
+    # Deliberately not nullable, and `False` is not a hedge. Setting it is the whole
+    # act; leaving it alone says the book was good and no more than good. "Not yet
+    # decided" is already expressed structurally, by a book having no review at all.
+    had_orm = models.BooleanField(
+        "Orm",
+        default=False,
+        help_text="Rare. Not a higher rating -- a different axis. Tick it only for a "
+        "book that did something to you beyond being good.",
+    )
+
     summary = models.CharField(
         max_length=300,
         blank=True,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ListeningLine } from "@/components/listening-line";
+import { OrmNote, OrmScore } from "@/components/orm";
 import { Score } from "@/components/score";
 import { ViewCount } from "@/components/view-count";
 import { getReview } from "@/lib/api";
@@ -140,6 +141,7 @@ export default async function ReviewPage({ params }: Props) {
                 </p>
               </div>
             )}
+            {review.had_orm && <OrmScore />}
           </div>
         </div>
       </header>
@@ -170,6 +172,8 @@ export default async function ReviewPage({ params }: Props) {
           headers(), cookies() or searchParams would. The CI build check still has to
           show this route as static. */}
       <ViewCount slug={review.slug} />
+
+      {review.had_orm && <OrmNote />}
     </article>
   );
 }

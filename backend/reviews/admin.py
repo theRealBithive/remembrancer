@@ -21,7 +21,7 @@ class ReviewForm(forms.ModelForm):
         # Explicit allowlist rather than "__all__": slug, published_at, view_count and
         # the mastodon_* columns are derived or machine-owned and must never be
         # settable from a form post, even by staff.
-        fields = ("book", "status", "rating_overall", "rating_narration",
+        fields = ("book", "status", "rating_overall", "rating_narration", "had_orm",
                   "summary", "body_markdown")
         widgets = {
             "summary": forms.Textarea(attrs={"rows": 3, "cols": 80}),
@@ -43,7 +43,7 @@ class ReviewAdmin(admin.ModelAdmin):
     form = ReviewForm
     list_display = ("book_title", "rating_display", "status", "published_at",
                     "syndication", "view_count")
-    list_filter = ("status",)
+    list_filter = ("status", "had_orm")
     actions = ["post_to_mastodon"]
     search_fields = ("book__title", "book__authors", "summary", "body_markdown")
     date_hierarchy = "published_at"
@@ -54,8 +54,11 @@ class ReviewAdmin(admin.ModelAdmin):
                        "mastodon_posted_at", "public_link", "created_at", "updated_at")
     fieldsets = (
         (None, {"fields": ("book", "status", "public_link")}),
-        ("Rating", {"fields": ("rating_overall", "rating_narration"),
-                    "description": "Half-steps: 1–10 renders as 0.5–5 stars."}),
+        ("Rating", {"fields": ("rating_overall", "rating_narration", "had_orm"),
+                    "description": "Half-steps: 1–10 renders as 0.5–5 stars. Orm is not "
+                                   "a sixth star: it says the book did something to you, "
+                                   "which a well-made book can fail to do and a flawed "
+                                   "one can manage."}),
         ("Review", {"fields": ("summary", "body_markdown"),
                     "description": "Both optional. A rating on its own is a complete "
                                    "review; the share card falls back to the body, "
@@ -77,7 +80,8 @@ class ReviewAdmin(admin.ModelAdmin):
     @admin.display(description="rating")
     def rating_display(self, obj):
         narration = f" · narration {obj.stars_narration:g}★" if obj.rating_narration else ""
-        return f"{obj.stars_overall:g}★{narration}"
+        orm = " · Orm" if obj.had_orm else ""
+        return f"{obj.stars_overall:g}★{narration}{orm}"
 
     @admin.display(description="mastodon")
     def syndication(self, obj):

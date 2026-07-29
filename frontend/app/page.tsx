@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ListeningLine } from "@/components/listening-line";
 import { NowPanel } from "@/components/now-panel";
+import { OrmMark, OrmNote } from "@/components/orm";
 import { Score } from "@/components/score";
 import { getNow, listReviews } from "@/lib/api";
 import { stars } from "@/lib/format";
@@ -74,8 +75,14 @@ export default async function IndexPage() {
                         )}
                       </p>
                     </div>
-                    <div className="shrink-0">
+                    <div className="shrink-0 text-right">
                       <Score halfSteps={review.rating_overall} />
+                      {/* Under the score rather than beside it: the row is already
+                          tight at narrow widths, and a long title would push the mark
+                          into the number. The note at the foot of the list explains
+                          it — the mark itself cannot link, being inside this row's
+                          own Link already. */}
+                      {review.had_orm && <OrmMark />}
                     </div>
                   </div>
 
@@ -97,6 +104,10 @@ export default async function IndexPage() {
           );
         })}
       </ol>
+
+      {/* Only when something above it is marked -- a standing note explaining an
+          absence nobody asked about is worse than no note. */}
+      {reviews.some((review) => review.had_orm) && <OrmNote />}
     </div>
   );
 }

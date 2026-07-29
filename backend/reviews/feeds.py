@@ -31,8 +31,10 @@ class ReviewsFeed(Feed):
         return published()[:50]
 
     def item_title(self, item):
-        stars = f"{item.stars_overall:g}★"
-        return f"{item.book.title} — {item.book.primary_author} ({stars})"
+        # Spelled out rather than a glyph: a reader shows this as plain text with no
+        # page around it to explain a mark, so the word has to survive on its own.
+        marks = f"{item.stars_overall:g}★" + (", Orm" if item.had_orm else "")
+        return f"{item.book.title} — {item.book.primary_author} ({marks})"
 
     def item_description(self, item):
         # Never empty: a rating-only review still has to be a readable row in a reader,

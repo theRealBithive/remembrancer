@@ -32,6 +32,14 @@ that book, in full. Some books have a rating and no words at all; that is a rati
 I stand behind, not a missing review.
 
   stars   my rating, 0.5–5.
+  ORM     the strongest positive signal in this document, and rare -- expect a
+          handful in the whole library, never most of the 5s. Borrowed from
+          Walter Moers: the Orm is the force said to run through a writer when
+          the work is more than well made. It is NOT a sixth star and does not
+          follow from the rating; it is a separate axis. A flawless book can
+          lack it and a flawed one can have it. Read it as: this book did
+          something to me. Weight it far above stars. Its absence means only
+          "good, and no more than good" -- never a complaint.
   pace    hours of audio per calendar day while I was reading it. High means I
           devoured it; below ~0.5 means I slogged. It is the honest signal --
           I gave it without meaning to.
@@ -87,6 +95,10 @@ def _reviewed_lines(books) -> list[str]:
     for book in books:
         review = book.review
         parts = [f"{review.stars_overall:g} stars"]
+        # Second, right after the rating it is meant to be read against, and in caps
+        # so it cannot be skimmed past in a wall of lowercase fields.
+        if review.had_orm:
+            parts.append("ORM")
         if review.rating_narration:
             parts.append(f"narration {review.stars_narration:g}")
         if book.is_finished:
@@ -184,7 +196,9 @@ def build_profile(*, include_unstarted: bool = True) -> str:
     out.append(
         "Given the above, recommend audiobooks I do not already own. Say which "
         "specific things in my history each one follows from, and include at least "
-        "one that is a deliberate departure from the pattern."
+        "one that is a deliberate departure from the pattern. Where anything is "
+        "marked ORM, treat that as the clearest statement of what I actually want "
+        "more of."
     )
     return "\n".join(out) + "\n"
 

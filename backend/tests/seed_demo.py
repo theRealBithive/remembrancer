@@ -27,6 +27,9 @@ DEMO = [
         "days": 3.0,   # devoured
         "rating_overall": 9,
         "rating_narration": 10,
+        # The one marked entry, so the mark and its footnote are both exercised and a
+        # 4.5 sitting next to it proves the two axes really are independent.
+        "had_orm": True,
         "summary": "Ray Porter doesn't narrate this so much as inhabit it. The best "
                    "argument I know for listening to a book instead of reading it.",
         "body": (
@@ -148,6 +151,7 @@ for entry in DEMO:
         review_fields = {
             "rating_overall": data.pop("rating_overall"),
             "rating_narration": data.pop("rating_narration"),
+            "had_orm": data.pop("had_orm", False),
             "summary": data.pop("summary"),
             "body_markdown": data.pop("body"),
             "status": Review.Status.PUBLISHED,

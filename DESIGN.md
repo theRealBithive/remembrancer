@@ -23,7 +23,7 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 2 | Topology | ABS is publicly reachable over HTTPS; sync is a plain scheduled pull. |
 | 3 | Sync scope | Mirror all book libraries + `/api/me` progress. Queue = finished **or abandoned**, and no review. |
 | 4 | Durability | Full local copy of metadata; covers downloaded to local media. ABS is a source, not a runtime dependency. |
-| 5 | Rating | Overall 1–5 in half-steps (required) + separate narration score (optional). Prose optional. |
+| 5 | Rating | Overall 1–5 in half-steps (required) + separate narration score (optional). Prose optional. Plus the Orm mark — see 24. |
 | 6 | Content | Markdown body, sanitized with `nh3`. `draft → published` + `published_at`. Optional hand-written `summary` (~300 chars); a rating alone is a complete review. |
 | 7 | Authoring | **Django admin.** Next.js is strictly read-only — zero mutating endpoints outside Django session auth. |
 | 8 | Rendering | SSG/ISR with signed on-publish revalidation from Django. `generateMetadata()` emits OG tags. |
@@ -42,6 +42,7 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 21 | Listening record | Capture `startedAt`/`lastUpdate`/`progress`. Pace (h of audio per calendar day) is the rating hint; abandonment is a reviewable verdict. Pace is public, dates are not — softened by 23, which publishes a month. |
 | 22 | Distribution | Images published to GHCR by CI. Nothing domain-specific is baked in, so one image serves any deployment. |
 | 23 | Present tense | Homepage shows the one book in progress and a twelve-month bar of books finished this year. Publishes an **unreviewed** book and a monthly calendar; `Book.hide_from_public` is the control. |
+| 24 | Orm | A boolean second axis (Walter Moers), not a sixth star. Rare, opt-in, `default=False`; absence is silence, never a verdict. Footnoted publicly, explained at length in the LLM export. |
 
 ---
 
@@ -90,6 +91,9 @@ Review
                                                    # frozen thereafter
   rating_overall     PositiveSmallIntegerField     # 1..10 half-steps, required
   rating_narration   PositiveSmallIntegerField, nullable
+  had_orm            BooleanField                  # Decision 24. Not nullable: the
+                                                   # undecided state is "book has no
+                                                   # review", which already exists
   summary            CharField(300, blank)         # og:description + Mastodon body;
                                                    # optional -- card_description falls
                                                    # back to the body, then the rating
@@ -319,6 +323,37 @@ print whatever URL the builder happened to have.
   `/legal` is in P1 because it is a precondition for the site being public, not polish.
 - **P2 — reach.** Mastodon action + idempotency. *Done.*
 - **P3 — metrics.** Beacon endpoint, dedup, daily buckets, count display. *Done.*
+
+## The Orm mark (Decision 24)
+
+Both existing scores measure craft. "Five stars" says the book is excellent; it has no
+way to say the book did something to you, and those two things genuinely come apart —
+a flawless novel can leave nothing behind, and a flawed one can sit with you for years.
+Borrowed from Walter Moers, where the Orm is the force said to run through a writer
+when the work is more than well made.
+
+**Boolean, because the concept is.** Half an Orm means nothing. This is the rare field
+where a scale would be the wrong shape rather than the more informative one.
+
+**`default=False`, and that is not a hedge.** Ticking the box is the whole act. The
+genuinely undecided state already exists and is structural: a book with no review. So
+`False` on a written review means "good, and no more than good" — a real statement,
+just a quiet one. Nothing is rendered for it anywhere.
+
+**It has to be legible to a stranger.** A mark only Zamonien readers recognise is an
+in-joke published in public. So it is the word, never a glyph — a rune beside a score
+reads as decoration, and the word is the one form someone can look up — and it links to
+a note at the foot of the page. The note appears only where something above it is
+marked; a standing footnote explaining an absence is worse than no footnote.
+
+The one place it is spelled out at length is the LLM export, which is read cold by
+something that has never seen the term in this sense and would otherwise take it for
+the database kind. The legend there says what it is, that it does not follow from the
+rating, and how heavily to weigh it. Left out of the Mastodon post on purpose: a toot
+carries no footnote, and a cryptic word is worse than a missing one.
+
+If every 5/5 turns out to be marked, the field is redundant and should be deleted. Ten
+reviews is enough to know.
 
 ## Listening profile export
 

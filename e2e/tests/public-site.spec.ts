@@ -46,6 +46,20 @@ test("review page renders content and both ratings", async ({ page }) => {
   await expect(page.locator(".prose")).not.toBeEmpty();
 });
 
+test("an Orm mark is explained on the page that carries it", async ({ page }) => {
+  // The mark is borrowed from Walter Moers and means nothing to a stranger, so it must
+  // never appear without the note it points at.
+  await page.goto(`/reviews/${SLUG}`);
+
+  const mark = page.getByText("Orm", { exact: true }).first();
+  if (!(await mark.count())) test.skip(true, "seeded review carries no Orm mark");
+
+  await expect(mark).toBeVisible();
+  const note = page.locator("#orm");
+  await expect(note).toContainText("Walter Moers");
+  await expect(note).toContainText("not a sixth star");
+});
+
 test("OpenGraph tags are in the server-returned HTML, not injected by JS", async ({
   request,
 }) => {
