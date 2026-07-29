@@ -44,7 +44,10 @@ export function OrmScore() {
  */
 export function OrmMark() {
   return (
-    <span className="mt-1 block font-display text-xl leading-none sm:text-2xl">
+    // Centred on the score above rather than inheriting the row's right alignment,
+    // which pushed the word flush with the "/5" and left it visibly off-axis from the
+    // numeral it belongs to.
+    <span className="mt-2 block text-center font-display text-xl leading-none sm:text-2xl">
       Orm
       <span className="sr-only"> — this one did something to me</span>
     </span>
