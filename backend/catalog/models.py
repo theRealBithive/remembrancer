@@ -20,6 +20,14 @@ ABANDONED_MAX_PROGRESS = 0.15
 ABANDONED_MIN_SECONDS = 300
 
 
+# Fields on Book that I set and the nightly sync must never touch. Kept here as a
+# named list because the failure mode is silent: add one of these to
+# sync.MIRRORED_FIELDS and every run quietly erases it -- no error, no traceback, and
+# nothing to notice until a flag you set last month is gone. A test asserts the two
+# lists stay disjoint.
+AUTHORED_FIELDS = ("hide_from_public", "is_comfort_read", "abandoned_note")
+
+
 def abandoned_cutoff():
     return timezone.now() - timedelta(days=ABANDONED_IDLE_DAYS)
 
@@ -97,14 +105,35 @@ class Book(models.Model):
         help_text="Absent from the last sync. Never deleted -- a review may depend on it.",
     )
 
-    # The one authored value in an otherwise disposable mirror, which is why it is
-    # absent from sync.MIRRORED_FIELDS. It hides the *title*: a hidden book still
-    # counts toward the year total, because a number reveals nothing and a count that
-    # silently disagreed with the library would be worse than no count.
+    # --- authored, not mirrored (see AUTHORED_FIELDS) -----------------------
+    # The only values on this model that are mine rather than Audiobookshelf's.
+
+    # Hides the *title*: a hidden book still counts toward the year total, because a
+    # number reveals nothing and a count that silently disagreed with the library
+    # would be worse than no count.
     hide_from_public = models.BooleanField(
         default=False,
         help_text="Keep this book out of “now listening” on the public page. "
         "The sync never touches this box.",
+    )
+
+    # Pace says a book went down fast. It cannot say whether that was because it was
+    # gripping or because it asked nothing of me, and a recommender reading the export
+    # has no way to tell those apart. This is how I say which.
+    is_comfort_read = models.BooleanField(
+        "comfort read",
+        default=False,
+        help_text="What I put on to switch off. Kept out of the taste profile in the "
+        "LLM export -- offered as a separate appetite instead.",
+    )
+
+    # Only meaningful on an abandoned book. A review would be the natural home, but
+    # Review.rating_overall is required and rating a book you heard 3% of is a fiction.
+    abandoned_note = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Why I stopped. “Wrong moment” and “not for me” point a recommender "
+        "in opposite directions, so say which. Never shown publicly.",
     )
 
     synced_at = models.DateTimeField(auto_now=True)

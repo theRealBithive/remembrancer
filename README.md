@@ -7,7 +7,7 @@ Django mirrors the library nightly and surfaces a queue of books awaiting a verd
 finished, or abandoned early enough that bailing was itself the review. You write in the Django admin. Next.js serves statically-generated public
 pages with OpenGraph tags, so a link posted to Mastodon renders a proper card.
 
-`DESIGN.md` records the 24 decisions behind the architecture and why each was made.
+`DESIGN.md` records the 25 decisions behind the architecture and why each was made.
 
 **Status: complete through P3** — read, Mastodon syndication, and view counting.
 
@@ -145,15 +145,50 @@ than a comment.
 
 Admin → *Books* → **Export for an LLM**. It opens a plain-text page: select all,
 paste it into a chat, and the prompt at the bottom asks for recommendations. A
-450-book library comes to roughly 30 KB, about 7k tokens — small enough that nothing
+450-book library comes to roughly 35 KB, about 9k tokens — small enough that nothing
 has to be trimmed on the other end.
 
 The format is one line per book with a legend at the top instead of repeated field
-names, and it carries only what says something about taste: rating, listening pace,
-what you abandoned, and your reviews in full — summary and body both, quoted with
-`> `. The summary alone is written for a Mastodon card; the reasons are in the body,
-and the reasons are the point. Publisher, ISBN, cover and ABS ids are left out —
-they would cost context and tell a recommender nothing.
+names, and it carries only what says something about taste: rating, the Orm mark,
+listening pace, what you abandoned, and your reviews in full — summary and body both,
+quoted with `> `. The summary alone is written for a Mastodon card; the reasons are in
+the body, and the reasons are the point. Publisher, ISBN, cover and ABS ids are left
+out — they would cost context and tell a recommender nothing.
+
+Four things in there came out of actually running the experiment: pasting the whole
+file into a model, asking for recommendations, and reading what it could not see.
+
+**The narrator.** This is an audiobook library, so a reader is a reason to pick a book
+up and a reason to put one down, and the file said nothing about it. Books you have
+heard now name theirs. The to-read pile does not — that section is most of the export
+and exists only to say "already owned", and the reader there is one you have never
+heard, so the name is pure cost. Cutting it there is what pays for it everywhere else.
+
+**Comfort reading.** Tick *comfort read* on the Books changelist, or select a shelf and
+use the bulk action — this arrives as a series, thirty-odd tie-in novels at a time, and
+a flag applied one row at a time stays permanently half-applied. Marked books are still
+in the export, still in whatever section their state puts them, but flagged `comfort`
+and explicitly fenced off in the legend: a recommender may serve them if you ask, and
+must never average them into the main taste. Without this the file simultaneously
+claims you devour military tie-ins and revere Le Guin, both true, and produces a
+recommendation matching neither.
+
+**Dates.** Year and month, never the day: `finished 2026-03`, or `last touched 2026-07`
+on something in progress — which also exposes the books you gave up on without
+admitting it. The public site deliberately withholds the calendar (Decision 21); this
+file is your own history handed to a model on purpose, and without a rough date a
+recommender cannot tell the taste you had at twenty from the one you have now.
+
+**Why you stopped.** *Cryptonomicon* at 3% and something you actively disliked at 3%
+are the same line in the file and opposite verdicts. The *abandoned note* field on the
+changelist prints as a `why:` line, and the legend says how to read it: "wrong moment"
+means keep suggesting this kind of thing, "not for me" means stop.
+
+Those three fields — *hide from public*, *comfort read*, *abandoned note* — are the
+only values on `Book` that are yours rather than Audiobookshelf's. They are listed in
+`catalog.models.AUTHORED_FIELDS` and kept out of `sync.MIRRORED_FIELDS`, with a test
+holding the two apart, because the failure mode is silent: add one to the mirror and
+the nightly sync erases it with no error and nothing to notice.
 
 The second link omits the to-read pile. That is usually most of the library and
 contributes only "already own this", so dropping it cuts the export by about two

@@ -5,7 +5,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from catalog.abs import AbsError
-from catalog.models import Book
+from catalog.models import AUTHORED_FIELDS, Book
 from catalog.profile import build_profile, profile_stats
 from catalog.sync import sync
 
@@ -58,22 +58,23 @@ class ReviewedFilter(admin.SimpleListFilter):
 class BookAdmin(admin.ModelAdmin):
     """A mirror, so effectively read-only: the next sync would discard any edit.
 
-    `hide_from_public` is the single exception, and only because `sync.MIRRORED_FIELDS`
-    deliberately omits it.
+    The exceptions are `catalog.models.AUTHORED_FIELDS`, which `sync.MIRRORED_FIELDS`
+    deliberately omits.
     """
 
     list_display = ("thumb", "title", "authors", "narrators", "listening", "write_review",
-                    "hide_from_public", "is_orphaned", "synced_at")
+                    "hide_from_public", "is_comfort_read", "abandoned_note",
+                    "is_orphaned", "synced_at")
     list_display_links = ("title",)
-    # The one editable column. Hiding the book you are listening to has to be a tick on
-    # the row you are already looking at -- a trip into a change form full of read-only
-    # fields to reach a single checkbox is the kind of friction that means it never
-    # happens in time.
-    list_editable = ("hide_from_public",)
-    list_filter = (ReviewedFilter, "is_finished", "is_orphaned", "series")
+    # The editable columns, and the only ones the sync does not own. Each has to be a
+    # tick on the row you are already looking at -- a trip into a change form full of
+    # read-only fields to reach one checkbox is the kind of friction that means it
+    # never happens.
+    list_editable = ("hide_from_public", "is_comfort_read", "abandoned_note")
+    list_filter = (ReviewedFilter, "is_comfort_read", "is_finished", "is_orphaned", "series")
     search_fields = ("title", "subtitle", "authors", "narrators", "asin", "isbn")
     ordering = ("-finished_at", "title")
-    actions = ["sync_now"]
+    actions = ["sync_now", "mark_comfort_read", "unmark_comfort_read"]
     change_list_template = "admin/catalog/book/change_list.html"
 
     def get_urls(self):
@@ -113,8 +114,8 @@ class BookAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related("review")
 
     def get_readonly_fields(self, request, obj=None):
-        # Everything except the one field the sync does not own.
-        return [f.name for f in Book._meta.fields if f.name != "hide_from_public"]
+        # Everything except the handful the sync does not own.
+        return [f.name for f in Book._meta.fields if f.name not in AUTHORED_FIELDS]
 
     def has_add_permission(self, request):
         return False
@@ -172,6 +173,30 @@ class BookAdmin(admin.ModelAdmin):
         if obj.progress:
             return f"{obj.progress:.0%} in"
         return "—"
+
+    @admin.action(description="Mark as comfort reading")
+    def mark_comfort_read(self, request, queryset):
+        """Bulk, because this is a whole shelf at a time.
+
+        Comfort reading arrives as a series -- thirty-odd tie-in novels, not one book
+        you happen to feel differently about -- and tagging them one row at a time is
+        how the flag stays permanently half-applied and therefore useless.
+        """
+        self._set_comfort(request, queryset, True)
+
+    @admin.action(description="Unmark as comfort reading")
+    def unmark_comfort_read(self, request, queryset):
+        self._set_comfort(request, queryset, False)
+
+    def _set_comfort(self, request, queryset, value):
+        count = queryset.update(is_comfort_read=value)
+        verb = "Marked" if value else "Unmarked"
+        self.message_user(
+            request,
+            f"{verb} {count} book{'s' if count != 1 else ''}. The LLM export keeps "
+            "these out of the taste profile and offers them as a separate appetite.",
+            messages.SUCCESS,
+        )
 
     @admin.action(description="Sync now from Audiobookshelf")
     def sync_now(self, request, queryset):

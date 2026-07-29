@@ -67,6 +67,9 @@ DEMO = [
         "duration_seconds": 21 * 3600 + 8 * 60,
         "colour": (176, 142, 70),
         "days": 240.0,  # a crawl -- the other end of the scale
+        # Marked so the export's comfort path is exercised by a book that also has a
+        # review: the review stays in REVIEWED and still carries the marker.
+        "is_comfort_read": True,
         "rating_overall": 7,
         "rating_narration": 5,
         "summary": "The book endures. This particular production, with its shifting "
@@ -103,6 +106,20 @@ DEMO = [
         "colour": (86, 96, 84),
         "in_progress": 0.41,
     },
+    {
+        # Bailed on, with a reason. Here so the export's "why:" line is exercised --
+        # the whole point of that field is that two abandonments at the same
+        # percentage can mean opposite things.
+        "abs_item_id": "demo-crypto",
+        "title": "Cryptonomicon",
+        "authors": "Neal Stephenson",
+        "narrators": "William Dufris",
+        "published_year": 1999,
+        "duration_seconds": 43 * 3600,
+        "colour": (44, 62, 58),
+        "abandoned": 0.03,
+        "abandoned_note": "wrong moment, not the wrong book — 43h needs a clear run",
+    },
 ]
 
 
@@ -127,15 +144,29 @@ def finished_in_month(month: int):
     return timezone.make_aware(datetime(timezone.localdate().year, month, 12, 12), tz)
 
 
-finished = [entry for entry in DEMO if "in_progress" not in entry]
+finished = [entry for entry in DEMO if {"in_progress", "abandoned"}.isdisjoint(entry)]
 elapsed_months = timezone.localdate().month
 
 for entry in DEMO:
     data = dict(entry)
     colour = data.pop("colour")
     in_progress = data.pop("in_progress", None)
+    abandoned = data.pop("abandoned", None)
 
-    if in_progress is None:
+    if abandoned is not None:
+        # Well past ABANDONED_IDLE_DAYS and under ABANDONED_MAX_PROGRESS, so
+        # `is_abandoned` agrees rather than this being a book merely paused.
+        silent_since = timezone.now() - timedelta(days=200)
+        listening = {
+            "is_finished": False,
+            "finished_at": None,
+            "started_at": silent_since - timedelta(days=2),
+            "last_played_at": silent_since,
+            "progress": abandoned,
+            "seconds_listened": int(data["duration_seconds"] * abandoned),
+        }
+        review_fields = None
+    elif in_progress is None:
         days = data.pop("days")
         # Spread over January..this month, oldest entry first.
         position = finished.index(entry)

@@ -257,6 +257,37 @@ def test_metadata_edits_upstream_overwrite_the_mirror():
     assert Book.objects.get().authors == "Andy Wier"
 
 
+def test_what_i_authored_is_not_in_the_list_the_sync_overwrites():
+    """The failure mode is silent, which is why this is a test and not a comment.
+
+    Add one of these to MIRRORED_FIELDS and every nightly run erases it: no error, no
+    traceback, nothing to notice until a flag you set last month is quietly gone and
+    the export has been lying for weeks.
+    """
+    from catalog.models import AUTHORED_FIELDS
+    from catalog.sync import MIRRORED_FIELDS
+
+    assert not set(AUTHORED_FIELDS) & set(MIRRORED_FIELDS)
+    # And they all still exist -- a renamed field would make the check above pass by
+    # comparing two sets that no longer describe anything.
+    names = {f.name for f in Book._meta.fields}
+    assert set(AUTHORED_FIELDS) <= names
+
+
+def test_my_own_marks_survive_a_sync_that_changes_the_book():
+    sync(FakeAbsClient(items=[abs_item()]))
+    Book.objects.update(
+        hide_from_public=True, is_comfort_read=True, abandoned_note="wrong moment"
+    )
+
+    sync(FakeAbsClient(items=[abs_item(author="Andy Wier")]))  # a real upstream edit
+
+    book = Book.objects.get()
+    assert book.authors == "Andy Wier", "the mirror still has to update"
+    assert (book.hide_from_public, book.is_comfort_read) == (True, True)
+    assert book.abandoned_note == "wrong moment"
+
+
 def test_changed_cover_replaces_the_file_instead_of_orphaning_it(media_root):
     """Django's storage suffixes on collision, so a naive re-save leaks a file per
     cover change and the media volume grows without bound."""

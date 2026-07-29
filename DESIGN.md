@@ -43,6 +43,7 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 22 | Distribution | Images published to GHCR by CI. Nothing domain-specific is baked in, so one image serves any deployment. |
 | 23 | Present tense | Homepage shows the one book in progress and a twelve-month bar of books finished this year. Publishes an **unreviewed** book and a monthly calendar; `Book.hide_from_public` is the control. |
 | 24 | Orm | A boolean second axis (Walter Moers), not a sixth star. Rare, opt-in, `default=False`; absence is silence, never a verdict. Footnoted publicly, explained at length in the LLM export. |
+| 25 | Export enrichment | Narrator, `is_comfort_read`, finish/last-touched months, `abandoned_note`. The export is private, so it publishes dates the site withholds. Authored `Book` fields are listed in `AUTHORED_FIELDS` and must never enter `MIRRORED_FIELDS`. |
 
 ---
 
@@ -79,9 +80,11 @@ Book
   progress           FloatField                    # 0..1
   seconds_listened   PositiveIntegerField, nullable
   is_orphaned        BooleanField                  # vanished upstream; review survives
-  hide_from_public   BooleanField                  # keeps a title out of "now
-                                                   # listening"; the one authored field
-                                                   # here, so absent from MIRRORED_FIELDS
+  # --- authored, never mirrored: see catalog.models.AUTHORED_FIELDS -----------
+  hide_from_public   BooleanField                  # keeps a title out of "now listening"
+  is_comfort_read    BooleanField                  # Decision 25; kept out of the taste
+                                                   # profile in the export
+  abandoned_note     CharField(200, blank)         # why I stopped. Export + admin only
   synced_at          DateTimeField
 
 Review

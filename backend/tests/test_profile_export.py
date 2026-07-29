@@ -118,6 +118,100 @@ def test_an_unreviewed_orphan_is_dropped(library):
     assert "Piranesi" not in build_profile()
 
 
+# -- what the recommender was missing ----------------------------------------
+
+
+def test_the_reader_is_named_where_i_heard_the_book(library, book):
+    """It is an audiobook profile. A narrator is a reason to pick a book up and a
+    reason to put one down, and the file could not say either."""
+    Book.objects.filter(pk=book.pk).update(narrators="Ray Porter")
+
+    text = build_profile()
+
+    assert "— Andy Weir, read by Ray Porter" in text
+
+
+def test_the_to_read_pile_does_not_name_readers(library):
+    """267 of ~380 lines, all of them books I have never heard. Cutting the reader
+    there is what pays for naming it everywhere it means something."""
+    Book.objects.filter(abs_item_id="todo").update(narrators="Some Narrator")
+
+    unstarted = build_profile().split("== UNSTARTED")[1]
+
+    assert "Piranesi" in unstarted
+    assert "Some Narrator" not in unstarted
+
+
+def test_comfort_reading_is_marked_and_explained(library):
+    Book.objects.filter(abs_item_id="fin").update(is_comfort_read=True)
+
+    text = build_profile()
+    line = next(line for line in text.splitlines() if "Dune" in line)
+
+    assert "| comfort |" in line
+    # The marker is useless without the instruction: pace lies on these rows, and a
+    # recommender that averages them into the rest produces a taste matching nobody.
+    assert "never average it together" in text
+
+
+def test_a_reviewed_comfort_read_keeps_its_review_and_its_marker(library, book):
+    """The review is real taste data wherever it came from, so the book stays in
+    REVIEWED -- but it still says what it is."""
+    Book.objects.filter(pk=book.pk).update(is_comfort_read=True)
+
+    reviewed = build_profile().split("== FINISHED")[0]
+
+    assert "comfort" in reviewed
+    assert "> Rocky is the best alien in years." in reviewed
+
+
+def test_finished_books_carry_the_month_they_were_finished(library, book):
+    """Without a date there is no trajectory, and "what should I read next" is a
+    question about direction."""
+    when = timezone.now() - datetime.timedelta(days=40)
+    Book.objects.filter(pk=book.pk).update(finished_at=when)
+
+    assert f"finished {timezone.localtime(when):%Y-%m}" in build_profile()
+
+
+def test_a_stalled_book_says_when_it_was_last_opened(library):
+    """31 books "in progress" and several untouched for a year. Without this they are
+    indistinguishable from the one I am actually reading."""
+    when = timezone.now() - datetime.timedelta(days=300)
+    Book.objects.filter(abs_item_id="wip").update(last_played_at=when)
+
+    line = next(line for line in build_profile().splitlines() if "Ubik" in line)
+
+    assert f"last touched {timezone.localtime(when):%Y-%m}" in line
+
+
+def test_a_missing_date_is_omitted_rather_than_printed_as_a_question_mark(library):
+    """Plenty of books have no finished_at upstream. One "?" per line is enough."""
+    assert "finished ?" not in build_profile()
+    assert "last touched ?" not in build_profile()
+
+
+def test_an_abandoned_book_can_say_why(library):
+    """Cryptonomicon at 3% and Finnegans Wake at 16 minutes look identical in the file
+    and are completely different failures."""
+    Book.objects.filter(abs_item_id="drop").update(
+        abandoned_note="wrong moment, not the wrong book"
+    )
+
+    text = build_profile()
+
+    assert "  why: wrong moment, not the wrong book" in text
+    # And the instruction for reading it, or it is just another field.
+    assert '"wrong moment" means keep suggesting' in text
+
+
+def test_an_abandoned_book_without_a_note_gets_no_empty_why(library):
+    # Scoped past the legend, which explains the field whether or not any book uses it.
+    body = build_profile().split("== ABANDONED")[1]
+
+    assert "why:" not in body
+
+
 def test_nothing_useless_is_spent_on_tokens(library, book):
     """Ids, covers and publishers cost context and tell a recommender nothing."""
     book.publisher = "Audible Studios"
@@ -152,7 +246,11 @@ def test_it_stays_small_enough_to_paste(db):
     text = build_profile()
 
     assert len(text) < 40_000  # ~10k tokens, comfortably inside any modern window
-    assert len(build_profile(include_unstarted=False)) < 3_000
+    # The compact export is legend plus a one-line count, so this bound is really a
+    # bound on the legend. It is allowed to grow -- it is what makes every other line
+    # mean anything, and it is paid once rather than per book -- but not without
+    # somebody noticing.
+    assert len(build_profile(include_unstarted=False)) < 4_000
 
 
 def test_profile_stats_matches_what_the_export_shows(library):
