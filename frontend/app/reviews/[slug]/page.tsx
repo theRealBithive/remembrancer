@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ListeningLine } from "@/components/listening-line";
 import { OrmNote, OrmScore } from "@/components/orm";
 import { Score } from "@/components/score";
+import { Synopsis } from "@/components/synopsis";
 import { ViewCount } from "@/components/view-count";
 import { getReview } from "@/lib/api";
 import { listeningDate, stars } from "@/lib/format";
@@ -153,6 +154,11 @@ export default async function ReviewPage({ params }: Props) {
       />
 
       <hr className="mt-10 border-0 border-t border-rule" />
+
+      {/* Above the lede on purpose: it exists for the reader who does not know the
+          book, and below the review it would arrive after the reveals. Collapsed it
+          is one line, so it does not outrank the words it precedes. */}
+      {review.synopsis_html && <Synopsis html={review.synopsis_html} />}
 
       {review.summary && (
         <p className="mt-10 max-w-[var(--measure)] font-display text-xl leading-snug sm:text-2xl">

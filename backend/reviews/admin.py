@@ -22,11 +22,14 @@ class ReviewForm(forms.ModelForm):
         # the mastodon_* columns are derived or machine-owned and must never be
         # settable from a form post, even by staff.
         fields = ("book", "status", "rating_overall", "rating_narration", "had_orm",
-                  "summary", "body_markdown")
+                  "summary", "body_markdown", "synopsis_markdown")
         widgets = {
             "summary": forms.Textarea(attrs={"rows": 3, "cols": 80}),
             "body_markdown": forms.Textarea(attrs={"rows": 26, "cols": 100,
                                                    "style": "font-family:ui-monospace,monospace"}),
+            "synopsis_markdown": forms.Textarea(
+                attrs={"rows": 12, "cols": 100,
+                       "style": "font-family:ui-monospace,monospace"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -63,6 +66,12 @@ class ReviewAdmin(admin.ModelAdmin):
                     "description": "Both optional. A rating on its own is a complete "
                                    "review; the share card falls back to the body, "
                                    "then to the stars."}),
+        ("Synopsis", {"fields": ("synopsis_markdown",),
+                      "description": "Optional, and not written by you. Shown collapsed "
+                                     "on the page, and kept out of the share card, the "
+                                     "feed, the toot and the LLM export — it is derived "
+                                     "from the review, so a recommender reading it would "
+                                     "count your own opinion twice."}),
         ("Published state", {
             "classes": ("collapse",),
             "fields": ("slug", "published_at", "view_count",

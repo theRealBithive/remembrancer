@@ -41,6 +41,14 @@ DEMO = [
             "human.\n\n"
             "> Sixteen hours, and I resented every interruption."
         ),
+        # The one seeded synopsis, so the collapsed state is visible locally and the
+        # e2e check has something to open. Machine-written, like the real ones.
+        "synopsis": (
+            "A schoolteacher wakes on a spacecraft with no memory of who he is, two "
+            "dead crewmates, and a star that is dimming on a timetable Earth cannot "
+            "survive. Recovering his past in fragments, he works out what he was sent "
+            "to do — and finds he is not the only one who was sent."
+        ),
     },
     {
         "abs_item_id": "demo-piranesi",
@@ -185,6 +193,7 @@ for entry in DEMO:
             "had_orm": data.pop("had_orm", False),
             "summary": data.pop("summary"),
             "body_markdown": data.pop("body"),
+            "synopsis_markdown": data.pop("synopsis", ""),
             "status": Review.Status.PUBLISHED,
         }
     else:

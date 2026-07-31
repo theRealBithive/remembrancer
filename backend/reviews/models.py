@@ -77,6 +77,18 @@ class Review(models.Model):
     )
     body_markdown = models.TextField(blank=True, help_text="Markdown. Optional.")
 
+    # Written by a model, not by me, and shown collapsed on the page for exactly that
+    # reason. Deliberately absent from `card_description`, the feed, the toot and the
+    # LLM export: it is generated *from* the review, so anywhere it stands in for my
+    # own words it hands a recommender my opinions a second time, where they read as
+    # independent corroboration rather than the echo they are.
+    synopsis_markdown = models.TextField(
+        "Synopsis (LLM)",
+        blank=True,
+        help_text="Optional. Markdown. Plot orientation for someone who has not read "
+        "the book. Never quoted anywhere the site speaks for me.",
+    )
+
     status = models.CharField(max_length=16, choices=Status, default=Status.DRAFT, db_index=True)
     published_at = models.DateTimeField(null=True, blank=True)
 
@@ -146,6 +158,10 @@ class Review(models.Model):
         return render_markdown(self.body_markdown)
 
     @property
+    def synopsis_html(self) -> str:
+        return render_markdown(self.synopsis_markdown)
+
+    @property
     def card_description(self) -> str:
         """What a share card says when there is no hand-written summary.
 
@@ -156,6 +172,10 @@ class Review(models.Model):
 
         Computed here rather than in the page and again in the toot, so the two can
         never drift and both are reachable from a test.
+
+        `synopsis_markdown` is not in this chain and must not be added to it. It would
+        fill the blank card, which is the temptation -- but it would put a machine's
+        paraphrase of my review under my name in an og:description and a toot.
         """
         if self.summary.strip():
             return self.summary.strip()

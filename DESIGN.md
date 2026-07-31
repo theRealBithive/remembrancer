@@ -44,6 +44,7 @@ Django backend, Next.js frontend, Mastodon syndication, privacy-preserving view 
 | 23 | Present tense | Homepage shows the one book in progress and a twelve-month bar of books finished this year. Publishes an **unreviewed** book and a monthly calendar; `Book.hide_from_public` is the control. |
 | 24 | Orm | A boolean second axis (Walter Moers), not a sixth star. Rare, opt-in, `default=False`; absence is silence, never a verdict. Footnoted publicly, explained at length in the LLM export. |
 | 25 | Export enrichment | Narrator, `is_comfort_read`, finish/last-touched months, `abandoned_note`. The export is private, so it publishes dates the site withholds. Authored `Book` fields are listed in `AUTHORED_FIELDS` and must never enter `MIRRORED_FIELDS`. |
+| 26 | Synopsis | An optional LLM-written plot summary on `Review`, shown collapsed and labelled on the page. It is generated *from* the review, so it is barred from `card_description`, the feed, the toot and the LLM export — see below. |
 
 ---
 
@@ -101,6 +102,10 @@ Review
                                                    # optional -- card_description falls
                                                    # back to the body, then the rating
   body_markdown      TextField, blank
+  synopsis_markdown  TextField, blank              # Decision 26. LLM-written. Public
+                                                   # page only, collapsed; never
+                                                   # card_description, feed, toot or
+                                                   # the LLM export
   status             draft | published
   published_at       DateTimeField, nullable
   mastodon_status_id CharField, nullable, unique   # double-post guard
@@ -373,6 +378,50 @@ the verdict was authored, and it still describes the taste.
 
 Not an API and not public: it is one person's entire reading history behind
 `admin_view()` and `no-store`.
+
+One field is deliberately absent: `synopsis_markdown` — see Decision 26 below.
+
+## The synopsis (Decision 26)
+
+A review is written for someone who has read the book. A stranger arriving from a
+federated link usually has not, and the page gave them nowhere to get their bearings:
+the lede and the body both assume the plot. The synopsis is an optional Markdown field
+on `Review` that fills that gap — and it is written by a model, not by the author.
+
+That provenance decides everything else about it.
+
+**On the page it is honest.** Collapsed by default behind
+`Synopsis — skip if you already read the book (most likely LLM generated)`, set in a muted
+register, and placed above the lede because it exists for the reader who does not know
+the book and below the review it would arrive after the reveals. A native `<details>`,
+so it costs no JavaScript and the route stays static. Closed is the right default: the
+reader it serves is the rarer of the two, and an unrequested plot summary above a
+review reads as the site explaining the book to you before it will let you have the
+opinion.
+
+**Everywhere the site speaks as the author, it is barred.** The synopsis is generated
+*from* the review, so it is a paraphrase of the author's own words wearing a different
+voice. Four surfaces would each have a plausible reason to reach for it, and all four
+are closed:
+
+- `card_description` — the strongest temptation, because it exists precisely to fill a
+  blank card and a rating-only review with a synopsis sitting right there looks like
+  the obvious fallback. Its output becomes `og:description` and the Mastodon toot,
+  both of which are signed by a person.
+- the Atom feed (`item_description`) and the toot, for the same reason.
+- **the LLM export.** This is the one that motivated the design. The export exists so a
+  recommender can form a view of a taste from the words that expressed it. A machine
+  paraphrase of those words, arriving in the same document as though it were a second
+  observation, would be counted twice and read as corroboration — a false signal
+  manufactured by the site itself, which is the exact failure the format is built to
+  avoid.
+
+Renders through the same `render_markdown` as the body, so the sanitizer allowlist is
+untouched; the disclosure element lives in React around already-clean HTML rather than
+in `ALLOWED_TAGS`, which keeps `<details>` unauthorable from the admin. Each of the
+four exclusions is pinned by a test in `backend/tests/test_synopsis.py` — they are
+absences, and an absence that nothing asserts is one refactor from being helpfully
+filled in.
 
 ## Deliberately out of scope
 

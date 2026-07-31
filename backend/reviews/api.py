@@ -66,6 +66,10 @@ class ReviewListOut(Schema):
 
 class ReviewOut(ReviewListOut):
     body_html: str
+    # Machine-written and shown collapsed. On the detail response only: a card has no
+    # use for it, and every place the site speaks in my voice -- card_description, the
+    # feed, the toot, the LLM export -- is deliberately out of its reach.
+    synopsis_html: str
     # Deliberately no view_count: this response is baked into an ISR page for up to an
     # hour, so any number here would be stale on arrival. The beacon returns the live
     # one instead.
@@ -139,6 +143,7 @@ def _serialize(review: Review, *, full: bool) -> dict:
     }
     if full:
         data["body_html"] = review.body_html
+        data["synopsis_html"] = review.synopsis_html
     return data
 
 

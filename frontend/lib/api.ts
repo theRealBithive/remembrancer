@@ -46,6 +46,12 @@ export type ReviewSummary = {
 
 export type Review = ReviewSummary & {
   body_html: string;
+  /**
+   * Machine-written plot orientation, empty on most reviews. Detail response only,
+   * and never a substitute for `summary` or `card_description` — it is derived from
+   * the review, so anywhere it speaks for the author it says the same thing twice.
+   */
+  synopsis_html: string;
   // No view count: this response is cached into the static page for up to an hour.
   // The live number comes from the beacon response, client-side.
 };

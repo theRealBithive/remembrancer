@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 
 const SLUG = process.env.E2E_SLUG ?? "project-hail-mary-andy-weir";
 
+/** The review body. `.prose` alone also matches the synopsis, which is not mine. */
+const BODY = ".prose:not(.prose-muted)";
+
 test("index lists reviews with title, rating and runtime", async ({ page }) => {
   await page.goto("/");
 
@@ -43,7 +46,26 @@ test("review page renders content and both ratings", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByText("Overall")).toBeVisible();
   await expect(page.getByText("Narration")).toBeVisible();
-  await expect(page.locator(".prose")).not.toBeEmpty();
+  await expect(page.locator(BODY)).not.toBeEmpty();
+});
+
+test("the synopsis is folded away and labelled as not mine", async ({ page }) => {
+  // It is machine-written, and the reader it is for is the one who has not read the
+  // book -- the rarer of the two. Open by default it would explain the plot to
+  // everyone else before letting them at the review.
+  await page.goto(`/reviews/${SLUG}`);
+
+  const disclosure = page.locator("details").filter({ hasText: "Synopsis" });
+  if (!(await disclosure.count())) test.skip(true, "seeded review carries no synopsis");
+
+  const label = disclosure.getByText(/Synopsis/);
+  await expect(label).toBeVisible();
+  await expect(label).toContainText("LLM generated");
+  await expect(disclosure.locator(".prose-muted")).toBeHidden();
+
+  await label.click();
+
+  await expect(disclosure.locator(".prose-muted")).toBeVisible();
 });
 
 test("an Orm mark is explained on the page that carries it", async ({ page }) => {
@@ -83,12 +105,12 @@ test("review body is sanitized: no script or event handlers reach the page", asy
 
   // Scoped to the element, not a substring of the document -- Next's own RSC payload
   // scripts live further down the page and would make a naive text search useless.
-  const body = await page.locator(".prose").innerHTML();
+  const body = await page.locator(BODY).innerHTML();
 
   expect(body).not.toMatch(/<script/i);
   expect(body).not.toMatch(/<iframe/i);
   expect(body).not.toMatch(/\son[a-z]+\s*=/i);
-  expect(await page.locator(".prose a[href^='javascript:']").count()).toBe(0);
+  expect(await page.locator(`${BODY} a[href^='javascript:']`).count()).toBe(0);
 });
 
 test("legal page is reachable and linked from the footer everywhere", async ({ page }) => {

@@ -78,6 +78,26 @@ explains it at length, because a model reading the file cold would otherwise tak
 
 Left out of the Mastodon post deliberately: a toot carries no footnote with it.
 
+## Synopsis
+
+A second text box under the review body, and the only field on the site not written by
+you: paste an LLM's plot summary of the book into it. Optional, and most reviews will
+never have one.
+
+It exists for the stranger arriving from a link who has not read the book — your lede
+and your body both assume the plot. On the page it sits above the lede, folded shut
+behind *Synopsis — skip if you already read the book (most likely LLM generated)*, in a lighter
+type than the review. Closed by default because the reader it serves is the rarer one,
+and labelled because it is not your voice.
+
+Everywhere the site speaks *as* you, it is barred: the share card and its
+`og:description`, the Atom feed, the Mastodon post, and the LLM export. The reason is
+the same in all four — the synopsis is generated from your review, so it is your own
+opinion paraphrased. Let it into the export and a recommender counts that opinion
+twice and reads the repetition as a second, agreeing source. Each exclusion is held by
+a test in `backend/tests/test_synopsis.py`; they guard absences, and an unasserted
+absence is one tidy refactor from being helpfully filled in.
+
 ## What the homepage says about right now
 
 Beside the review list — in the left margin above 1280px, stacked above it below —
@@ -201,6 +221,11 @@ Same thing from the shell, for piping:
 docker compose exec web python manage.py export_profile > profile.txt
 docker compose exec web python manage.py export_profile --no-unstarted
 ```
+
+One field never appears here: the **synopsis**. It is written by a model from your own
+review, so exporting it would hand a recommender your opinion a second time, in a
+different voice, where it reads as an independent second observation. See
+[Synopsis](#synopsis).
 
 The export is your whole reading history in one document. It is behind the admin
 login and sent with `no-store`; treat the pasted copy with the same care.

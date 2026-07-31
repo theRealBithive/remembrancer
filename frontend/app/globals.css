@@ -149,3 +149,15 @@ body {
   padding: 0.5rem 0.75rem 0.5rem 0;
   text-align: left;
 }
+
+/* Prose that is not mine — the LLM synopsis. Set a register below the review body so
+   the difference is visible before the label is read, not only after.
+
+   The size has to be overridden here rather than with a `text-base` utility on the
+   element: `.prose` above is unlayered and Tailwind's utilities sit in
+   @layer utilities, so the utility loses and would silently do nothing. */
+.prose-muted {
+  color: var(--color-muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
