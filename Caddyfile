@@ -18,6 +18,13 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Content-Type-Options "nosniff"
 		Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+		# Next sets no security headers of its own, so without this nothing emits HSTS
+		# for an actual page -- Django's SecurityMiddleware only covers what Django
+		# serves. A plain `set` replaces rather than appends, so Django's copy does not
+		# arrive alongside this one. Kept in step with the nginx template deliberately:
+		# CI exercises this edge, production runs that one, and a control that differs
+		# between them is a control CI cannot vouch for.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
 
